@@ -10,6 +10,8 @@ import Contacts from "./pages/Contacts";
 import CallInterface from "./pages/CallInterface";
 import NewCall from "./pages/NewCall";
 import NotFound from "./pages/NotFound";
+import Calls from "./pages/Calls";
+import Settings from "./pages/Settings";
 
 const queryClient = new QueryClient();
 
@@ -23,6 +25,8 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/contacts" element={<Contacts />} />
+          <Route path="/calls" element={<Calls />} />
+          <Route path="/settings" element={<Settings />} />
           <Route path="/call/:id" element={<CallInterface />} />
           <Route path="/new-call" element={<NewCall />} />
           <Route path="*" element={<NotFound />} />
