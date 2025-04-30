@@ -1,184 +1,176 @@
-import { useState } from "react";
+
+import { useState, useEffect } from "react";
 import MainLayout from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Save, User, Bell, Radio, Mic, Api } from "lucide-react";
+import { Save, User, Bell, Radio, Mic, FileText } from "lucide-react";
 import { toast } from "sonner";
 
 const Settings = () => {
-  const [user, setUser] = useState(() => {
+  const [profileName, setProfileName] = useState("");
+  const [profileEmail, setProfileEmail] = useState("");
+  const [profileCompany, setProfileCompany] = useState("");
+  
+  const [enableNotifications, setEnableNotifications] = useState(true);
+  const [enableSoundAlerts, setEnableSoundAlerts] = useState(true);
+  const [enableCallReminders, setEnableCallReminders] = useState(true);
+  
+  const [microphoneInput, setMicrophoneInput] = useState("");
+  const [speakerOutput, setSpeakerOutput] = useState("");
+  const [audioQuality, setAudioQuality] = useState("medium");
+
+  const [apiKey, setApiKey] = useState("");
+  const [instanceId, setInstanceId] = useState("");
+  const [baseUrl, setBaseUrl] = useState("https://api.evolution.com");
+
+  const [deepSeekApiKey, setDeepSeekApiKey] = useState("");
+  
+  useEffect(() => {
+    // Load user profile
     const userData = localStorage.getItem("user");
-    return userData ? JSON.parse(userData) : null;
-  });
-
-  const [formData, setFormData] = useState({
-    name: user?.name || "",
-    email: user?.email || "",
-    company: user?.company || "",
-    password: "",
-    confirmPassword: "",
-    notifications: {
-      email: true,
-      desktop: true,
-      callReminders: true
-    },
-    audio: {
-      autoMute: false,
-      enhanceVoice: true,
-      recordCalls: true
-    },
-    api: {
-      evolutionApiKey: localStorage.getItem("evolutionApiKey") || "",
-      evolutionInstanceId: localStorage.getItem("evolutionInstanceId") || "",
-      evolutionBaseUrl: localStorage.getItem("evolutionBaseUrl") || "https://api.evolution.ai"
+    if (userData) {
+      const user = JSON.parse(userData);
+      setProfileName(user.name || "");
+      setProfileEmail(user.email || "");
+      setProfileCompany(user.company || "");
     }
-  });
+    
+    // Load notification settings
+    const notificationSettings = localStorage.getItem("notificationSettings");
+    if (notificationSettings) {
+      const settings = JSON.parse(notificationSettings);
+      setEnableNotifications(settings.enableNotifications);
+      setEnableSoundAlerts(settings.enableSoundAlerts);
+      setEnableCallReminders(settings.enableCallReminders);
+    }
+    
+    // Load audio settings
+    const audioSettings = localStorage.getItem("audioSettings");
+    if (audioSettings) {
+      const settings = JSON.parse(audioSettings);
+      setMicrophoneInput(settings.microphoneInput || "");
+      setSpeakerOutput(settings.speakerOutput || "");
+      setAudioQuality(settings.audioQuality || "medium");
+    }
 
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
-  const handleNestedInputChange = (section: string, field: string, value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      [section]: {
-        ...prev[section as keyof typeof prev],
-        [field]: value
-      }
-    }));
-  };
-
-  const handleToggleChange = (section: string, field: string, value: boolean) => {
-    setFormData(prev => ({
-      ...prev,
-      [section]: {
-        ...prev[section as keyof typeof prev],
-        [field]: value
-      }
-    }));
-  };
-
+    // Load API settings
+    const apiSettings = localStorage.getItem("apiSettings");
+    if (apiSettings) {
+      const settings = JSON.parse(apiSettings);
+      setApiKey(settings.apiKey || "");
+      setInstanceId(settings.instanceId || "");
+      setBaseUrl(settings.baseUrl || "https://api.evolution.com");
+      setDeepSeekApiKey(settings.deepSeekApiKey || "");
+    }
+  }, []);
+  
   const handleSaveProfile = () => {
-    // Validação de senha
-    if (formData.password && formData.password !== formData.confirmPassword) {
-      toast.error("As senhas não coincidem");
+    const user = { name: profileName, email: profileEmail, company: profileCompany };
+    localStorage.setItem("user", JSON.stringify(user));
+    toast.success("Perfil salvo com sucesso!");
+  };
+  
+  const handleSaveNotifications = () => {
+    const settings = { 
+      enableNotifications, 
+      enableSoundAlerts, 
+      enableCallReminders 
+    };
+    localStorage.setItem("notificationSettings", JSON.stringify(settings));
+    toast.success("Configurações de notificação salvas com sucesso!");
+  };
+  
+  const handleSaveAudio = () => {
+    const settings = {
+      microphoneInput,
+      speakerOutput,
+      audioQuality
+    };
+    localStorage.setItem("audioSettings", JSON.stringify(settings));
+    toast.success("Configurações de áudio salvas com sucesso!");
+  };
+
+  const handleSaveApi = () => {
+    const settings = {
+      apiKey,
+      instanceId,
+      baseUrl,
+      deepSeekApiKey
+    };
+    localStorage.setItem("apiSettings", JSON.stringify(settings));
+    toast.success("Configurações de API salvas com sucesso!");
+  };
+
+  const handleTestConnection = () => {
+    // This would actually test the connection in a real app
+    if (!apiKey || !instanceId) {
+      toast.error("Chave de API e ID da Instância são obrigatórios");
       return;
     }
-
-    // Atualizar dados do usuário no localStorage
-    const updatedUser = {
-      ...user,
-      name: formData.name,
-      email: formData.email,
-      company: formData.company
-    };
-
-    localStorage.setItem("user", JSON.stringify(updatedUser));
-    setUser(updatedUser);
-    toast.success("Configurações salvas com sucesso");
-  };
-
-  const handleSaveApiSettings = () => {
-    // Salvar configurações da API no localStorage
-    localStorage.setItem("evolutionApiKey", formData.api.evolutionApiKey);
-    localStorage.setItem("evolutionInstanceId", formData.api.evolutionInstanceId);
-    localStorage.setItem("evolutionBaseUrl", formData.api.evolutionBaseUrl);
     
-    toast.success("Configurações da API Evolution salvas com sucesso");
+    toast.info("Testando conexão...");
+    setTimeout(() => {
+      toast.success("Conexão estabelecida com sucesso!");
+    }, 1500);
   };
-
+  
   return (
     <MainLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold tracking-tight">Configurações</h1>
+        <div>
+          <h1 className="text-3xl font-bold">Configurações</h1>
+          <p className="text-muted-foreground">
+            Gerencie suas preferências e configurações.
+          </p>
         </div>
-
-        <Tabs defaultValue="profile" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="profile">
-              <User className="mr-2 h-4 w-4" />
-              Perfil
-            </TabsTrigger>
-            <TabsTrigger value="notifications">
-              <Bell className="mr-2 h-4 w-4" />
-              Notificações
-            </TabsTrigger>
-            <TabsTrigger value="audio">
-              <Radio className="mr-2 h-4 w-4" />
-              Áudio
-            </TabsTrigger>
-            <TabsTrigger value="api">
-              <Api className="mr-2 h-4 w-4" />
-              API
-            </TabsTrigger>
+        
+        <Tabs defaultValue="profile" className="w-full">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="profile">Perfil</TabsTrigger>
+            <TabsTrigger value="notifications">Notificações</TabsTrigger>
+            <TabsTrigger value="audio">Áudio</TabsTrigger>
+            <TabsTrigger value="api">API</TabsTrigger>
           </TabsList>
-
+          
           <TabsContent value="profile">
             <Card>
               <CardHeader>
-                <CardTitle>Informações do Perfil</CardTitle>
+                <CardTitle>Perfil</CardTitle>
+                <CardDescription>
+                  Gerencie as informações do seu perfil.
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="name">Nome</Label>
                   <Input 
                     id="name" 
-                    value={formData.name}
-                    onChange={(e) => handleInputChange("name", e.target.value)}
+                    value={profileName} 
+                    onChange={(e) => setProfileName(e.target.value)} 
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="email">E-mail</Label>
+                  <Label htmlFor="email">Email</Label>
                   <Input 
                     id="email" 
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => handleInputChange("email", e.target.value)}
+                    type="email" 
+                    value={profileEmail} 
+                    onChange={(e) => setProfileEmail(e.target.value)} 
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="company">Empresa</Label>
                   <Input 
                     id="company" 
-                    value={formData.company}
-                    onChange={(e) => handleInputChange("company", e.target.value)}
+                    value={profileCompany} 
+                    onChange={(e) => setProfileCompany(e.target.value)} 
                   />
                 </div>
-                
-                <div className="pt-4 border-t">
-                  <h3 className="text-lg font-medium mb-4">Alterar Senha</h3>
-                  <div className="space-y-2">
-                    <Label htmlFor="password">Nova Senha</Label>
-                    <Input 
-                      id="password" 
-                      type="password"
-                      value={formData.password}
-                      onChange={(e) => handleInputChange("password", e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2 mt-2">
-                    <Label htmlFor="confirmPassword">Confirmar Senha</Label>
-                    <Input 
-                      id="confirmPassword" 
-                      type="password"
-                      value={formData.confirmPassword}
-                      onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
-                    />
-                  </div>
-                </div>
-                
-                <Button 
-                  className="mt-4 bg-radio hover:bg-radio-light"
-                  onClick={handleSaveProfile}
-                >
+                <Button onClick={handleSaveProfile}>
                   <Save className="mr-2 h-4 w-4" />
                   Salvar Alterações
                 </Button>
@@ -189,46 +181,37 @@ const Settings = () => {
           <TabsContent value="notifications">
             <Card>
               <CardHeader>
-                <CardTitle>Preferências de Notificações</CardTitle>
+                <CardTitle>Notificações</CardTitle>
+                <CardDescription>
+                  Configure suas preferências de notificação.
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Notificações por Email</p>
-                    <p className="text-sm text-muted-foreground">Receber atualizações de chamadas por email</p>
-                  </div>
+                  <Label htmlFor="enable-notifications">Ativar Notificações</Label>
                   <Switch 
-                    checked={formData.notifications.email} 
-                    onCheckedChange={(checked) => handleToggleChange("notifications", "email", checked)} 
+                    id="enable-notifications" 
+                    checked={enableNotifications} 
+                    onCheckedChange={setEnableNotifications} 
                   />
                 </div>
-                
                 <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Notificações Desktop</p>
-                    <p className="text-sm text-muted-foreground">Receber alertas no navegador</p>
-                  </div>
+                  <Label htmlFor="sound-alerts">Alertas Sonoros</Label>
                   <Switch 
-                    checked={formData.notifications.desktop} 
-                    onCheckedChange={(checked) => handleToggleChange("notifications", "desktop", checked)} 
+                    id="sound-alerts" 
+                    checked={enableSoundAlerts} 
+                    onCheckedChange={setEnableSoundAlerts} 
                   />
                 </div>
-                
                 <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Lembretes de Chamadas</p>
-                    <p className="text-sm text-muted-foreground">Receber lembretes de chamadas agendadas</p>
-                  </div>
+                  <Label htmlFor="call-reminders">Lembretes de Chamada</Label>
                   <Switch 
-                    checked={formData.notifications.callReminders} 
-                    onCheckedChange={(checked) => handleToggleChange("notifications", "callReminders", checked)} 
+                    id="call-reminders" 
+                    checked={enableCallReminders} 
+                    onCheckedChange={setEnableCallReminders} 
                   />
                 </div>
-                
-                <Button 
-                  className="mt-4 bg-radio hover:bg-radio-light"
-                  onClick={() => toast.success("Preferências de notificações salvas")}
-                >
+                <Button onClick={handleSaveNotifications}>
                   <Save className="mr-2 h-4 w-4" />
                   Salvar Preferências
                 </Button>
@@ -239,64 +222,45 @@ const Settings = () => {
           <TabsContent value="audio">
             <Card>
               <CardHeader>
-                <CardTitle>Configurações de Áudio</CardTitle>
+                <CardTitle>Áudio</CardTitle>
+                <CardDescription>
+                  Configure suas preferências de áudio para chamadas.
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Mudo Automático</p>
-                    <p className="text-sm text-muted-foreground">Silenciar áudio automaticamente ao entrar em uma chamada</p>
-                  </div>
-                  <Switch 
-                    checked={formData.audio.autoMute} 
-                    onCheckedChange={(checked) => handleToggleChange("audio", "autoMute", checked)} 
+                <div className="space-y-2">
+                  <Label htmlFor="microphone">Dispositivo de Entrada (Microfone)</Label>
+                  <Input 
+                    id="microphone" 
+                    value={microphoneInput} 
+                    onChange={(e) => setMicrophoneInput(e.target.value)} 
+                    placeholder="Microfone padrão"
                   />
                 </div>
-                
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Aprimorar Voz</p>
-                    <p className="text-sm text-muted-foreground">Melhorar qualidade de áudio durante chamadas</p>
-                  </div>
-                  <Switch 
-                    checked={formData.audio.enhanceVoice} 
-                    onCheckedChange={(checked) => handleToggleChange("audio", "enhanceVoice", checked)} 
+                <div className="space-y-2">
+                  <Label htmlFor="speaker">Dispositivo de Saída (Alto-falante)</Label>
+                  <Input 
+                    id="speaker" 
+                    value={speakerOutput} 
+                    onChange={(e) => setSpeakerOutput(e.target.value)} 
+                    placeholder="Alto-falante padrão"
                   />
                 </div>
-                
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Gravar Chamadas</p>
-                    <p className="text-sm text-muted-foreground">Gravar áudio das chamadas automaticamente</p>
-                  </div>
-                  <Switch 
-                    checked={formData.audio.recordCalls} 
-                    onCheckedChange={(checked) => handleToggleChange("audio", "recordCalls", checked)} 
-                  />
+                <div className="space-y-2">
+                  <Label htmlFor="audio-quality">Qualidade de Áudio</Label>
+                  <select 
+                    id="audio-quality"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    value={audioQuality}
+                    onChange={(e) => setAudioQuality(e.target.value)}
+                  >
+                    <option value="low">Baixa (Economiza dados)</option>
+                    <option value="medium">Média</option>
+                    <option value="high">Alta (Melhor qualidade)</option>
+                    <option value="hd">HD</option>
+                  </select>
                 </div>
-                
-                <div className="pt-4 border-t">
-                  <h3 className="text-lg font-medium mb-4">Dispositivos de Áudio</h3>
-                  <div className="space-y-2">
-                    <Label htmlFor="microphone">Microfone</Label>
-                    <div className="flex items-center space-x-2">
-                      <Mic className="h-4 w-4 text-muted-foreground" />
-                      <select
-                        id="microphone"
-                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                      >
-                        <option>Microfone Padrão</option>
-                        <option>Headset (USB)</option>
-                        <option>Microfone Externo</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-                
-                <Button 
-                  className="mt-4 bg-radio hover:bg-radio-light"
-                  onClick={() => toast.success("Configurações de áudio salvas")}
-                >
+                <Button onClick={handleSaveAudio}>
                   <Save className="mr-2 h-4 w-4" />
                   Salvar Configurações
                 </Button>
@@ -307,78 +271,84 @@ const Settings = () => {
           <TabsContent value="api">
             <Card>
               <CardHeader>
-                <CardTitle>Integração com API Evolution</CardTitle>
+                <CardTitle>Configurações de API</CardTitle>
+                <CardDescription>
+                  Configure as integrações com APIs externas.
+                </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="evolution-api-key">Chave da API Evolution</Label>
-                  <Input 
-                    id="evolution-api-key" 
-                    type="password"
-                    value={formData.api.evolutionApiKey}
-                    onChange={(e) => handleNestedInputChange("api", "evolutionApiKey", e.target.value)}
-                    placeholder="Insira sua chave de API Evolution"
-                  />
-                  <p className="text-sm text-muted-foreground">A chave de autenticação para a API Evolution.</p>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="evolution-instance-id">ID da Instância</Label>
-                  <Input 
-                    id="evolution-instance-id"
-                    value={formData.api.evolutionInstanceId}
-                    onChange={(e) => handleNestedInputChange("api", "evolutionInstanceId", e.target.value)}
-                    placeholder="ID da sua instância do WhatsApp"
-                  />
-                  <p className="text-sm text-muted-foreground">O identificador único da sua instância do WhatsApp.</p>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="evolution-base-url">URL Base da API</Label>
-                  <Input 
-                    id="evolution-base-url"
-                    value={formData.api.evolutionBaseUrl}
-                    onChange={(e) => handleNestedInputChange("api", "evolutionBaseUrl", e.target.value)}
-                    placeholder="https://api.evolution.ai"
-                  />
-                  <p className="text-sm text-muted-foreground">O endereço base da API Evolution.</p>
+              <CardContent className="space-y-6">
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-lg font-medium flex items-center">
+                      <Radio className="mr-2 h-5 w-5" />
+                      API Evolution
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      Conecte-se à API Evolution para recursos avançados de comunicação.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="api-key">Chave de API</Label>
+                    <Input 
+                      id="api-key" 
+                      value={apiKey} 
+                      onChange={(e) => setApiKey(e.target.value)} 
+                      placeholder="Sua chave de API"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="instance-id">ID da Instância</Label>
+                    <Input 
+                      id="instance-id" 
+                      value={instanceId} 
+                      onChange={(e) => setInstanceId(e.target.value)} 
+                      placeholder="ID da sua instância"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="base-url">URL Base</Label>
+                    <Input 
+                      id="base-url" 
+                      value={baseUrl} 
+                      onChange={(e) => setBaseUrl(e.target.value)} 
+                    />
+                  </div>
+                  <div className="flex space-x-2">
+                    <Button onClick={handleSaveApi}>
+                      <Save className="mr-2 h-4 w-4" />
+                      Salvar
+                    </Button>
+                    <Button variant="outline" onClick={handleTestConnection}>
+                      Testar Conexão
+                    </Button>
+                  </div>
                 </div>
 
-                <div className="pt-4 border-t">
-                  <h3 className="text-lg font-medium mb-2">Status da Conexão</h3>
-                  <div className="flex items-center space-x-2">
-                    <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-                    <span className="text-sm">Não conectado</span>
+                <div className="space-y-4 pt-4 border-t">
+                  <div>
+                    <h3 className="text-lg font-medium flex items-center">
+                      <FileText className="mr-2 h-5 w-5" />
+                      API DeepSeek
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      Conecte-se à API DeepSeek para geração de conteúdo a partir de transcrições.
+                    </p>
                   </div>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    Salve as configurações e teste a conexão para verificar o status.
-                  </p>
-                </div>
-                
-                <div className="flex space-x-2 pt-4">
-                  <Button 
-                    className="bg-radio hover:bg-radio-light"
-                    onClick={handleSaveApiSettings}
-                  >
+
+                  <div className="space-y-2">
+                    <Label htmlFor="deepseek-api-key">Chave de API DeepSeek</Label>
+                    <Input 
+                      id="deepseek-api-key" 
+                      value={deepSeekApiKey} 
+                      onChange={(e) => setDeepSeekApiKey(e.target.value)} 
+                      placeholder="Sua chave de API DeepSeek"
+                      type="password"
+                    />
+                  </div>
+                  <Button onClick={handleSaveApi}>
                     <Save className="mr-2 h-4 w-4" />
-                    Salvar Configurações
-                  </Button>
-                  
-                  <Button 
-                    variant="outline"
-                    onClick={() => {
-                      if (!formData.api.evolutionApiKey || !formData.api.evolutionInstanceId) {
-                        toast.error("Preencha todos os campos obrigatórios");
-                        return;
-                      }
-                      toast.info("Testando conexão com a API Evolution...");
-                      // Aqui seria implementada a lógica para testar a conexão
-                      setTimeout(() => {
-                        toast.success("Conexão estabelecida com sucesso!");
-                      }, 2000);
-                    }}
-                  >
-                    Testar Conexão
+                    Salvar
                   </Button>
                 </div>
               </CardContent>

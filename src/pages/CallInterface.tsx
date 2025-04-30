@@ -3,7 +3,10 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Mic, MicOff, Phone, Plus, Video, VideoOff, MessageSquare, Bell, User } from "lucide-react";
+import { 
+  Mic, MicOff, Phone, Plus, Video, VideoOff, 
+  MessageSquare, Bell, User, FileText 
+} from "lucide-react";
 import { toast } from "sonner";
 
 interface Participant {
@@ -31,6 +34,8 @@ const CallInterface = () => {
   });
   
   const [duration, setDuration] = useState("00:00");
+  const [isRecording, setIsRecording] = useState(false);
+  const [transcriptionText, setTranscriptionText] = useState("");
   
   useEffect(() => {
     const timer = setInterval(() => {
@@ -65,6 +70,52 @@ const CallInterface = () => {
   
   const addParticipant = () => {
     toast.info("This would open a dialog to add participants");
+  };
+
+  const toggleRecording = () => {
+    setIsRecording(!isRecording);
+    toast.success(isRecording ? "Gravação interrompida" : "Gravação iniciada");
+    
+    // Simulate transcription generation when recording stops
+    if (isRecording) {
+      // In a real app, this would come from the actual transcription service
+      setTranscriptionText("Esta é uma transcrição simulada da chamada. Em uma implementação real, isso viria do serviço de transcrição conectado à chamada. O texto conteria todo o diálogo da chamada que foi gravado.");
+    }
+  };
+  
+  const saveTranscription = () => {
+    if (!transcriptionText) {
+      toast.error("Não há transcrição para salvar. Inicie uma gravação primeiro.");
+      return;
+    }
+    
+    try {
+      // Get existing transcriptions
+      const savedTranscriptions = localStorage.getItem("transcriptions");
+      const transcriptions = savedTranscriptions ? JSON.parse(savedTranscriptions) : [];
+      
+      // Add new transcription
+      const newTranscription = {
+        id: Date.now().toString(),
+        title: `${callData.name} - ${new Date().toLocaleDateString()}`,
+        content: transcriptionText,
+        date: new Date(),
+        callId: callData.id
+      };
+      
+      transcriptions.push(newTranscription);
+      localStorage.setItem("transcriptions", JSON.stringify(transcriptions));
+      
+      toast.success("Transcrição salva com sucesso!");
+      
+      // Option to navigate to transcriptions page
+      if (confirm("Transcrição salva. Deseja ir para a página de transcrições?")) {
+        navigate("/transcriptions");
+      }
+    } catch (error) {
+      console.error("Error saving transcription:", error);
+      toast.error("Erro ao salvar transcrição");
+    }
   };
   
   return (
@@ -170,11 +221,32 @@ const CallInterface = () => {
                 
                 <div className="space-y-2">
                   <h3 className="text-sm font-medium">Recording</h3>
-                  <Button variant="outline" className="w-full justify-start">
-                    <Video className="mr-2 h-4 w-4 text-red-500" />
-                    Start Recording
+                  <Button 
+                    variant={isRecording ? "default" : "outline"} 
+                    className={`w-full justify-start ${isRecording ? "bg-red-500 hover:bg-red-600" : ""}`}
+                    onClick={toggleRecording}
+                  >
+                    <Video className={`mr-2 h-4 w-4 ${isRecording ? "text-white" : "text-red-500"}`} />
+                    {isRecording ? "Stop Recording" : "Start Recording"}
                   </Button>
                 </div>
+
+                {transcriptionText && (
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-medium">Transcription</h3>
+                    <div className="max-h-40 overflow-y-auto rounded-md bg-muted p-2 text-xs">
+                      {transcriptionText}
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      className="w-full justify-start"
+                      onClick={saveTranscription}
+                    >
+                      <FileText className="mr-2 h-4 w-4" />
+                      Save Transcription
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
             

@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Phone, Users, Settings, LogOut, Home, Calendar } from "lucide-react";
+import { Phone, Users, Settings, LogOut, Home, Calendar, FileText } from "lucide-react";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -24,6 +24,7 @@ const Sidebar = ({ isOpen, toggleSidebar }: SidebarProps) => {
   const menuItems = [
     { name: "Dashboard", path: "/dashboard", icon: <Home size={20} /> },
     { name: "Chamadas", path: "/calls", icon: <Calendar size={20} /> },
+    { name: "Transcrições", path: "/transcriptions", icon: <FileText size={20} /> },
     { name: "Contatos", path: "/contacts", icon: <Users size={20} /> },
     { name: "Configurações", path: "/settings", icon: <Settings size={20} /> },
   ];
