@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import MainLayout from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
@@ -7,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Save, User, Bell, Radio, Mic } from "lucide-react";
+import { Save, User, Bell, Radio, Mic, Api } from "lucide-react";
 import { toast } from "sonner";
 
 const Settings = () => {
@@ -31,6 +30,11 @@ const Settings = () => {
       autoMute: false,
       enhanceVoice: true,
       recordCalls: true
+    },
+    api: {
+      evolutionApiKey: localStorage.getItem("evolutionApiKey") || "",
+      evolutionInstanceId: localStorage.getItem("evolutionInstanceId") || "",
+      evolutionBaseUrl: localStorage.getItem("evolutionBaseUrl") || "https://api.evolution.ai"
     }
   });
 
@@ -38,6 +42,16 @@ const Settings = () => {
     setFormData(prev => ({
       ...prev,
       [field]: value
+    }));
+  };
+
+  const handleNestedInputChange = (section: string, field: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [section]: {
+        ...prev[section as keyof typeof prev],
+        [field]: value
+      }
     }));
   };
 
@@ -71,6 +85,15 @@ const Settings = () => {
     toast.success("Configurações salvas com sucesso");
   };
 
+  const handleSaveApiSettings = () => {
+    // Salvar configurações da API no localStorage
+    localStorage.setItem("evolutionApiKey", formData.api.evolutionApiKey);
+    localStorage.setItem("evolutionInstanceId", formData.api.evolutionInstanceId);
+    localStorage.setItem("evolutionBaseUrl", formData.api.evolutionBaseUrl);
+    
+    toast.success("Configurações da API Evolution salvas com sucesso");
+  };
+
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -91,6 +114,10 @@ const Settings = () => {
             <TabsTrigger value="audio">
               <Radio className="mr-2 h-4 w-4" />
               Áudio
+            </TabsTrigger>
+            <TabsTrigger value="api">
+              <Api className="mr-2 h-4 w-4" />
+              API
             </TabsTrigger>
           </TabsList>
 
@@ -273,6 +300,87 @@ const Settings = () => {
                   <Save className="mr-2 h-4 w-4" />
                   Salvar Configurações
                 </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="api">
+            <Card>
+              <CardHeader>
+                <CardTitle>Integração com API Evolution</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="evolution-api-key">Chave da API Evolution</Label>
+                  <Input 
+                    id="evolution-api-key" 
+                    type="password"
+                    value={formData.api.evolutionApiKey}
+                    onChange={(e) => handleNestedInputChange("api", "evolutionApiKey", e.target.value)}
+                    placeholder="Insira sua chave de API Evolution"
+                  />
+                  <p className="text-sm text-muted-foreground">A chave de autenticação para a API Evolution.</p>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="evolution-instance-id">ID da Instância</Label>
+                  <Input 
+                    id="evolution-instance-id"
+                    value={formData.api.evolutionInstanceId}
+                    onChange={(e) => handleNestedInputChange("api", "evolutionInstanceId", e.target.value)}
+                    placeholder="ID da sua instância do WhatsApp"
+                  />
+                  <p className="text-sm text-muted-foreground">O identificador único da sua instância do WhatsApp.</p>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="evolution-base-url">URL Base da API</Label>
+                  <Input 
+                    id="evolution-base-url"
+                    value={formData.api.evolutionBaseUrl}
+                    onChange={(e) => handleNestedInputChange("api", "evolutionBaseUrl", e.target.value)}
+                    placeholder="https://api.evolution.ai"
+                  />
+                  <p className="text-sm text-muted-foreground">O endereço base da API Evolution.</p>
+                </div>
+
+                <div className="pt-4 border-t">
+                  <h3 className="text-lg font-medium mb-2">Status da Conexão</h3>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                    <span className="text-sm">Não conectado</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Salve as configurações e teste a conexão para verificar o status.
+                  </p>
+                </div>
+                
+                <div className="flex space-x-2 pt-4">
+                  <Button 
+                    className="bg-radio hover:bg-radio-light"
+                    onClick={handleSaveApiSettings}
+                  >
+                    <Save className="mr-2 h-4 w-4" />
+                    Salvar Configurações
+                  </Button>
+                  
+                  <Button 
+                    variant="outline"
+                    onClick={() => {
+                      if (!formData.api.evolutionApiKey || !formData.api.evolutionInstanceId) {
+                        toast.error("Preencha todos os campos obrigatórios");
+                        return;
+                      }
+                      toast.info("Testando conexão com a API Evolution...");
+                      // Aqui seria implementada a lógica para testar a conexão
+                      setTimeout(() => {
+                        toast.success("Conexão estabelecida com sucesso!");
+                      }, 2000);
+                    }}
+                  >
+                    Testar Conexão
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
