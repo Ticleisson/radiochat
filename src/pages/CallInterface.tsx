@@ -8,6 +8,7 @@ import {
   MessageSquare, Bell, User, FileText 
 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranscriptions } from "@/hooks/useTranscriptions";
 
 interface Participant {
   id: string;
@@ -20,6 +21,7 @@ interface Participant {
 const CallInterface = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { addTranscription } = useTranscriptions();
   
   const [callData, setCallData] = useState({
     id: id || "active1",
@@ -34,8 +36,9 @@ const CallInterface = () => {
   });
   
   const [duration, setDuration] = useState("00:00");
-  const [isRecording, setIsRecording] = useState(false);
+  const [isRecording, setIsRecording] = useState(true); // Auto-recording by default
   const [transcriptionText, setTranscriptionText] = useState("");
+  const [autoSaveTranscription, setAutoSaveTranscription] = useState(true);
   
   useEffect(() => {
     const timer = setInterval(() => {
@@ -47,6 +50,31 @@ const CallInterface = () => {
     
     return () => clearInterval(timer);
   }, [callData.startTime]);
+
+  // Simulate transcription generation when component mounts (automatic recording)
+  useEffect(() => {
+    // Simulate real-time transcription as the call progresses
+    const transcriptionInterval = setInterval(() => {
+      if (isRecording) {
+        // In a real app, this would be updated continuously from a real transcription service
+        setTranscriptionText(prev => {
+          const transcriptionParts = [
+            "Olá, hoje estamos em uma entrevista ao vivo.",
+            "Vamos discutir os principais tópicos da semana.",
+            "Obrigado por participar desta chamada.",
+            "Como vocês estão se sentindo hoje?",
+            "Nosso próximo tópico será sobre as novidades do mercado.",
+            "Agradecemos a todos pela participação.",
+          ];
+          
+          const randomPart = transcriptionParts[Math.floor(Math.random() * transcriptionParts.length)];
+          return prev ? `${prev}\n${randomPart}` : randomPart;
+        });
+      }
+    }, 5000); // Update every 5 seconds to simulate real-time transcription
+    
+    return () => clearInterval(transcriptionInterval);
+  }, [isRecording]);
   
   const toggleAudio = (participantId: string) => {
     setCallData(prev => ({
@@ -64,7 +92,13 @@ const CallInterface = () => {
   };
   
   const endCall = () => {
-    toast.success("Call ended successfully");
+    // Save transcription automatically at call end
+    if (autoSaveTranscription && transcriptionText) {
+      saveTranscription();
+      toast.success("Chamada finalizada e transcrição salva automaticamente");
+    } else {
+      toast.success("Chamada finalizada");
+    }
     navigate("/dashboard");
   };
   
@@ -75,26 +109,16 @@ const CallInterface = () => {
   const toggleRecording = () => {
     setIsRecording(!isRecording);
     toast.success(isRecording ? "Gravação interrompida" : "Gravação iniciada");
-    
-    // Simulate transcription generation when recording stops
-    if (isRecording) {
-      // In a real app, this would come from the actual transcription service
-      setTranscriptionText("Esta é uma transcrição simulada da chamada. Em uma implementação real, isso viria do serviço de transcrição conectado à chamada. O texto conteria todo o diálogo da chamada que foi gravado.");
-    }
   };
   
   const saveTranscription = () => {
     if (!transcriptionText) {
-      toast.error("Não há transcrição para salvar. Inicie uma gravação primeiro.");
+      toast.error("Não há transcrição para salvar.");
       return;
     }
     
     try {
-      // Get existing transcriptions
-      const savedTranscriptions = localStorage.getItem("transcriptions");
-      const transcriptions = savedTranscriptions ? JSON.parse(savedTranscriptions) : [];
-      
-      // Add new transcription
+      // Add new transcription using the hook
       const newTranscription = {
         id: Date.now().toString(),
         title: `${callData.name} - ${new Date().toLocaleDateString()}`,
@@ -103,15 +127,8 @@ const CallInterface = () => {
         callId: callData.id
       };
       
-      transcriptions.push(newTranscription);
-      localStorage.setItem("transcriptions", JSON.stringify(transcriptions));
-      
+      addTranscription(newTranscription);
       toast.success("Transcrição salva com sucesso!");
-      
-      // Option to navigate to transcriptions page
-      if (confirm("Transcrição salva. Deseja ir para a página de transcrições?")) {
-        navigate("/transcriptions");
-      }
     } catch (error) {
       console.error("Error saving transcription:", error);
       toast.error("Erro ao salvar transcrição");
@@ -220,33 +237,35 @@ const CallInterface = () => {
                 </div>
                 
                 <div className="space-y-2">
-                  <h3 className="text-sm font-medium">Recording</h3>
-                  <Button 
-                    variant={isRecording ? "default" : "outline"} 
-                    className={`w-full justify-start ${isRecording ? "bg-red-500 hover:bg-red-600" : ""}`}
-                    onClick={toggleRecording}
-                  >
-                    <Video className={`mr-2 h-4 w-4 ${isRecording ? "text-white" : "text-red-500"}`} />
-                    {isRecording ? "Stop Recording" : "Start Recording"}
-                  </Button>
-                </div>
-
-                {transcriptionText && (
+                  <h3 className="text-sm font-medium">Gravação e Transcrição</h3>
                   <div className="space-y-2">
-                    <h3 className="text-sm font-medium">Transcription</h3>
-                    <div className="max-h-40 overflow-y-auto rounded-md bg-muted p-2 text-xs">
-                      {transcriptionText}
-                    </div>
                     <Button 
-                      variant="outline" 
-                      className="w-full justify-start"
-                      onClick={saveTranscription}
+                      variant={isRecording ? "default" : "outline"} 
+                      className={`w-full justify-start ${isRecording ? "bg-red-500 hover:bg-red-600" : ""}`}
+                      onClick={toggleRecording}
                     >
-                      <FileText className="mr-2 h-4 w-4" />
-                      Save Transcription
+                      <Video className={`mr-2 h-4 w-4 ${isRecording ? "text-white" : "text-red-500"}`} />
+                      {isRecording ? "Pausar Gravação" : "Retomar Gravação"}
                     </Button>
+                    
+                    {transcriptionText && (
+                      <div className="space-y-2">
+                        <h3 className="text-sm font-medium">Transcrição em tempo real</h3>
+                        <div className="max-h-40 overflow-y-auto rounded-md bg-muted p-2 text-xs">
+                          {transcriptionText}
+                        </div>
+                        <Button 
+                          variant="outline" 
+                          className="w-full justify-start"
+                          onClick={saveTranscription}
+                        >
+                          <FileText className="mr-2 h-4 w-4" />
+                          Salvar Transcrição Manualmente
+                        </Button>
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
               </div>
             </div>
             
