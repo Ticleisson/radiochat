@@ -2,6 +2,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import LoginForm from "@/components/auth/LoginForm";
+import { Phone, Users, Video } from "lucide-react";
 
 const Index = () => {
   const navigate = useNavigate();

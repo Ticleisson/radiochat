@@ -24,11 +24,11 @@ const Dashboard = () => {
       id: "active1", 
       name: "Live Interview", 
       participants: [
-        { id: "p1", name: "John Smith", status: "connected", audio: true, video: false },
-        { id: "p2", name: "Maria Garcia", status: "connecting", audio: false, video: false },
+        { id: "p1", name: "John Smith", status: "connected" as "connected", audio: true, video: false },
+        { id: "p2", name: "Maria Garcia", status: "connecting" as "connecting", audio: false, video: false },
       ], 
       startTime: new Date(Date.now() - 15 * 60000), // 15 minutes ago
-      type: "audio"
+      type: "audio" as "audio" | "video"
     }
   ];
 
