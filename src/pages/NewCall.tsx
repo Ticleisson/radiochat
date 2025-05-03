@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import MainLayout from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Mic, Video, ChevronLeft, Search, Plus, X } from "lucide-react";
+import { Mic, Video, ChevronLeft, Search, Plus, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Contact, fetchContacts } from "@/services/contactsService";
 import { useQuery } from "@tanstack/react-query";
@@ -19,18 +19,33 @@ const NewCall = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedContacts, setSelectedContacts] = useState<Contact[]>([]);
   
-  // Buscar contatos reais usando React Query
+  // Buscar contatos usando React Query com tratamento de erro aprimorado
   const { data: contacts = [], isLoading, error } = useQuery({
-    queryKey: ['contacts'],
-    queryFn: fetchContacts,
+    queryKey: ['contacts-for-call'],
+    queryFn: async () => {
+      try {
+        console.log("Buscando contatos para nova chamada...");
+        const contactsData = await fetchContacts();
+        console.log("Contatos recuperados:", contactsData.length);
+        return contactsData;
+      } catch (error) {
+        console.error("Erro ao buscar contatos para nova chamada:", error);
+        toast.error("Falha ao carregar contatos. Verifique sua conexão.");
+        return []; // Retorna array vazio em caso de erro
+      }
+    },
+    staleTime: 60 * 1000, // 1 minuto
+    retry: 2 // Tenta 2 vezes antes de falhar
   });
   
+  // Filtra contatos baseado no termo de busca e remove contatos já selecionados
   const filteredContacts = contacts.filter(
     (contact) =>
-      contact.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (contact.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       contact.phone?.includes(searchTerm) ||
-      (contact.organization?.toLowerCase() || "").includes(searchTerm.toLowerCase())
-  ).filter(contact => !selectedContacts.some(selected => selected.id === contact.id));
+      (contact.organization?.toLowerCase() || "").includes(searchTerm.toLowerCase())) &&
+      !selectedContacts.some(selected => selected.id === contact.id)
+  );
   
   const handleContactSelect = (contact: Contact) => {
     setSelectedContacts([...selectedContacts, contact]);
@@ -57,12 +72,6 @@ const NewCall = () => {
       navigate("/call/new");
     }, 1000);
   };
-  
-  // Tratar erros
-  if (error) {
-    console.error("Erro ao buscar contatos:", error);
-    toast.error("Não foi possível carregar seus contatos. Por favor, tente novamente.");
-  }
   
   return (
     <MainLayout>
@@ -112,24 +121,31 @@ const NewCall = () => {
             
             <div className="space-y-2">
               <Label>Participantes</Label>
-              <div className="flex flex-wrap gap-2 mb-2">
-                {selectedContacts.map(contact => (
-                  <div 
-                    key={contact.id} 
-                    className="flex items-center rounded-full bg-muted px-3 py-1 text-sm"
-                  >
-                    <span>{contact.name}</span>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-6 w-6 ml-1"
-                      onClick={() => handleContactRemove(contact.id)}
+              {/* Lista de contatos selecionados */}
+              {selectedContacts.length > 0 ? (
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {selectedContacts.map(contact => (
+                    <div 
+                      key={contact.id} 
+                      className="flex items-center rounded-full bg-muted px-3 py-1 text-sm"
                     >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
+                      <span>{contact.name}</span>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-6 w-6 ml-1"
+                        onClick={() => handleContactRemove(contact.id)}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground mb-2">
+                  Nenhum participante selecionado
+                </p>
+              )}
               
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -141,16 +157,24 @@ const NewCall = () => {
                 />
               </div>
               
-              {searchTerm && (
-                <Card className="mt-2">
-                  <CardContent className="p-2">
-                    {isLoading ? (
-                      <div className="text-center py-2">
-                        <p className="text-sm text-muted-foreground">Carregando contatos...</p>
-                      </div>
-                    ) : filteredContacts.length > 0 ? (
-                      <div className="space-y-1">
-                        {filteredContacts.slice(0, 5).map(contact => (
+              {/* Lista de resultados da busca */}
+              <Card className="mt-2 border shadow-sm">
+                <CardContent className="p-2 max-h-64 overflow-y-auto">
+                  {isLoading ? (
+                    <div className="flex justify-center items-center py-4">
+                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                      <span className="ml-2 text-sm text-muted-foreground">Carregando contatos...</span>
+                    </div>
+                  ) : contacts.length === 0 ? (
+                    <div className="text-center py-4">
+                      <p className="text-sm text-muted-foreground">Nenhum contato encontrado.</p>
+                      <p className="text-xs text-muted-foreground mt-1">Adicione contatos na página de Contatos.</p>
+                    </div>
+                  ) : filteredContacts.length > 0 || searchTerm ? (
+                    <div className="space-y-1">
+                      {/* Mostra contatos filtrados pelo termo de busca ou todos se não houver termo */}
+                      {(searchTerm ? filteredContacts : contacts.filter(c => !selectedContacts.some(s => s.id === c.id)))
+                        .map(contact => (
                           <div 
                             key={contact.id}
                             className="flex items-center justify-between rounded-md p-2 hover:bg-muted cursor-pointer"
@@ -159,24 +183,30 @@ const NewCall = () => {
                             <div>
                               <p className="font-medium">{contact.name}</p>
                               <p className="text-xs text-muted-foreground">{contact.phone}</p>
+                              {contact.organization && (
+                                <p className="text-xs text-muted-foreground">{contact.organization}</p>
+                              )}
                             </div>
                             <Button size="icon" variant="ghost" className="h-8 w-8">
                               <Plus className="h-4 w-4" />
                             </Button>
                           </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-center text-sm text-muted-foreground py-2">Nenhum contato encontrado</p>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
+                        ))
+                      }
+                    </div>
+                  ) : (
+                    <p className="text-center text-sm text-muted-foreground py-4">
+                      Todos os contatos já foram selecionados.
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
             </div>
             
             <Button 
               className="w-full bg-radio hover:bg-radio-light"
               onClick={startCall}
+              disabled={selectedContacts.length === 0 || !callName}
             >
               Iniciar Chamada
             </Button>
