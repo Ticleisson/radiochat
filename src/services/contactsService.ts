@@ -14,6 +14,14 @@ export interface Contact {
 
 export const fetchContacts = async (): Promise<Contact[]> => {
   try {
+    // Primeiro tentamos buscar contatos da Evolution API
+    const evolutionContacts = await fetchEvolutionContacts();
+    
+    if (evolutionContacts && evolutionContacts.length > 0) {
+      return evolutionContacts;
+    }
+
+    // Se não conseguir ou não tiver contatos na Evolution API, busca do Supabase
     const { data, error } = await supabase
       .from("contacts")
       .select("*")
@@ -29,6 +37,48 @@ export const fetchContacts = async (): Promise<Contact[]> => {
     console.error("Error fetching contacts:", error);
     throw error;
   }
+};
+
+const fetchEvolutionContacts = async (): Promise<Contact[]> => {
+  try {
+    // URL da API Evolution - substitua pela URL correta do seu ambiente
+    const evolutionApiUrl = "https://api.evolutionchat.com.br/v1/contacts";
+    
+    const response = await fetch(evolutionApiUrl, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + getEvolutionApiKey()
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Erro ao buscar contatos da API Evolution: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    // Mapeie a resposta da API Evolution para o formato de contato usado na aplicação
+    return data.map((contact: any) => ({
+      id: contact.id || contact.wa_id,
+      name: contact.name || contact.pushname,
+      phone: contact.number || contact.wa_id,
+      organization: contact.organization || "",
+      user_id: "evolution_api", // Identificador para saber que veio da Evolution API
+      created_at: new Date().toISOString(),
+      last_contact: contact.last_seen || ""
+    }));
+  } catch (error) {
+    console.error("Erro ao buscar contatos da API Evolution:", error);
+    // Retorne um array vazio caso haja erro para que o fluxo continue
+    return [];
+  }
+};
+
+// Função para obter a chave da API Evolution
+const getEvolutionApiKey = (): string => {
+  // Idealmente, isso deveria vir de uma variável de ambiente ou configuração segura
+  return "seu_token_aqui"; // Substitua pelo token real de integração
 };
 
 export const createContact = async (contact: Omit<Contact, "id" | "user_id" | "created_at">): Promise<Contact> => {

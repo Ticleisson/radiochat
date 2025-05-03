@@ -7,27 +7,38 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Phone, Users, Clock, Plus, Video, Mic } from "lucide-react";
 import ActiveCallCard from "@/components/calls/ActiveCallCard";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { fetchContacts } from "@/services/contactsService";
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("overview");
   
-  // Demo data
+  // Buscar contatos para mostrar o total
+  const { data: contacts = [] } = useQuery({
+    queryKey: ['dashboard-contacts'],
+    queryFn: fetchContacts,
+    staleTime: 5 * 60 * 1000, // 5 minutos
+  });
+  
+  // Buscar chamadas recentes - aqui você poderia integrar com um serviço real
+  // Por enquanto, mantemos alguns dados de exemplo, mas isso seria substituído por dados reais
   const recentCalls = [
-    { id: "1", name: "Morning Show Interview", participants: 3, duration: "45:22", date: "Today, 8:30 AM", status: "completed" },
-    { id: "2", name: "News Update", participants: 2, duration: "12:14", date: "Yesterday, 6:15 PM", status: "completed" },
-    { id: "3", name: "Sports Roundup", participants: 4, duration: "32:56", date: "Apr 28, 2025", status: "completed" },
+    { id: "1", name: "Entrevista Morning Show", participants: 3, duration: "45:22", date: "Hoje, 8:30", status: "completed" },
+    { id: "2", name: "Atualização de Notícias", participants: 2, duration: "12:14", date: "Ontem, 18:15", status: "completed" },
+    { id: "3", name: "Resumo Esportivo", participants: 4, duration: "32:56", date: "28 Abril, 2025", status: "completed" },
   ];
   
+  // Dados de chamadas ativas - isso também seria substituído por dados reais
   const activeCalls = [
     { 
       id: "active1", 
-      name: "Live Interview", 
+      name: "Entrevista ao vivo", 
       participants: [
-        { id: "p1", name: "John Smith", status: "connected" as "connected", audio: true, video: false },
+        { id: "p1", name: "João Silva", status: "connected" as "connected", audio: true, video: false },
         { id: "p2", name: "Maria Garcia", status: "connecting" as "connecting", audio: false, video: false },
       ], 
-      startTime: new Date(Date.now() - 15 * 60000), // 15 minutes ago
+      startTime: new Date(Date.now() - 15 * 60000), // 15 minutos atrás
       type: "audio" as "audio" | "video"
     }
   ];
@@ -43,7 +54,7 @@ const Dashboard = () => {
               className="bg-radio hover:bg-radio-light"
             >
               <Plus className="mr-1 h-4 w-4" />
-              New Call
+              Nova Chamada
             </Button>
           </div>
         </div>
@@ -51,7 +62,7 @@ const Dashboard = () => {
         <div className="grid gap-6 md:grid-cols-3">
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Active Calls</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Chamadas Ativas</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-center">
@@ -63,19 +74,19 @@ const Dashboard = () => {
           
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Contacts</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Total de Contatos</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-center">
                 <Users className="mr-2 h-5 w-5 text-muted-foreground" />
-                <div className="text-2xl font-bold">24</div>
+                <div className="text-2xl font-bold">{contacts.length}</div>
               </div>
             </CardContent>
           </Card>
           
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Call Hours</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Total de Horas de Chamada</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-center">

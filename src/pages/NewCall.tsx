@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import MainLayout from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
@@ -9,13 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Mic, Video, ChevronLeft, Search, Plus, X } from "lucide-react";
 import { toast } from "sonner";
-
-interface Contact {
-  id: string;
-  name: string;
-  phone: string;
-  organization: string;
-}
+import { Contact, fetchContacts } from "@/services/contactsService";
+import { useQuery } from "@tanstack/react-query";
 
 const NewCall = () => {
   const navigate = useNavigate();
@@ -24,20 +19,17 @@ const NewCall = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedContacts, setSelectedContacts] = useState<Contact[]>([]);
   
-  // Mock contacts
-  const contacts: Contact[] = [
-    { id: "1", name: "Maria Silva", phone: "+55 11 99999-8888", organization: "Daily News" },
-    { id: "2", name: "João Santos", phone: "+55 11 97777-6666", organization: "Sports Tribune" },
-    { id: "3", name: "Ana Costa", phone: "+55 11 96666-5555", organization: "City Hall" },
-    { id: "4", name: "Carlos Oliveira", phone: "+55 11 95555-4444", organization: "Local Business Association" },
-    { id: "5", name: "Paula Souza", phone: "+55 11 94444-3333", organization: "University" },
-  ];
+  // Buscar contatos reais usando React Query
+  const { data: contacts = [], isLoading, error } = useQuery({
+    queryKey: ['contacts'],
+    queryFn: fetchContacts,
+  });
   
   const filteredContacts = contacts.filter(
     (contact) =>
-      contact.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      contact.phone.includes(searchTerm) ||
-      contact.organization.toLowerCase().includes(searchTerm.toLowerCase())
+      contact.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      contact.phone?.includes(searchTerm) ||
+      (contact.organization?.toLowerCase() || "").includes(searchTerm.toLowerCase())
   ).filter(contact => !selectedContacts.some(selected => selected.id === contact.id));
   
   const handleContactSelect = (contact: Contact) => {
@@ -51,20 +43,26 @@ const NewCall = () => {
   
   const startCall = () => {
     if (!callName) {
-      toast.error("Please enter a call name");
+      toast.error("Por favor, informe um nome para a chamada");
       return;
     }
     
     if (selectedContacts.length === 0) {
-      toast.error("Please select at least one participant");
+      toast.error("Por favor, selecione pelo menos um participante");
       return;
     }
     
-    toast.success("Starting call...");
+    toast.success("Iniciando chamada...");
     setTimeout(() => {
       navigate("/call/new");
     }, 1000);
   };
+  
+  // Tratar erros
+  if (error) {
+    console.error("Erro ao buscar contatos:", error);
+    toast.error("Não foi possível carregar seus contatos. Por favor, tente novamente.");
+  }
   
   return (
     <MainLayout>
@@ -78,42 +76,42 @@ const NewCall = () => {
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <h1 className="text-2xl font-bold tracking-tight">New Call</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Nova Chamada</h1>
         </div>
         
         <Card>
           <CardHeader>
-            <CardTitle>Call Settings</CardTitle>
+            <CardTitle>Configurações da Chamada</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="call-name">Call Name</Label>
+              <Label htmlFor="call-name">Nome da Chamada</Label>
               <Input 
                 id="call-name" 
-                placeholder="E.g., Morning Show Interview" 
+                placeholder="Ex: Entrevista Morning Show" 
                 value={callName}
                 onChange={(e) => setCallName(e.target.value)}
               />
             </div>
             
             <div className="space-y-2">
-              <Label>Call Type</Label>
+              <Label>Tipo de Chamada</Label>
               <Tabs defaultValue="audio" onValueChange={(value) => setCallType(value as "audio" | "video")}>
                 <TabsList className="grid w-full grid-cols-2">
                   <TabsTrigger value="audio">
                     <Mic className="mr-2 h-4 w-4" />
-                    Audio
+                    Áudio
                   </TabsTrigger>
                   <TabsTrigger value="video">
                     <Video className="mr-2 h-4 w-4" />
-                    Video
+                    Vídeo
                   </TabsTrigger>
                 </TabsList>
               </Tabs>
             </div>
             
             <div className="space-y-2">
-              <Label>Participants</Label>
+              <Label>Participantes</Label>
               <div className="flex flex-wrap gap-2 mb-2">
                 {selectedContacts.map(contact => (
                   <div 
@@ -136,7 +134,7 @@ const NewCall = () => {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  placeholder="Search contacts..."
+                  placeholder="Buscar contatos..."
                   className="pl-10"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -146,7 +144,11 @@ const NewCall = () => {
               {searchTerm && (
                 <Card className="mt-2">
                   <CardContent className="p-2">
-                    {filteredContacts.length > 0 ? (
+                    {isLoading ? (
+                      <div className="text-center py-2">
+                        <p className="text-sm text-muted-foreground">Carregando contatos...</p>
+                      </div>
+                    ) : filteredContacts.length > 0 ? (
                       <div className="space-y-1">
                         {filteredContacts.slice(0, 5).map(contact => (
                           <div 
@@ -165,7 +167,7 @@ const NewCall = () => {
                         ))}
                       </div>
                     ) : (
-                      <p className="text-center text-sm text-muted-foreground py-2">No contacts found</p>
+                      <p className="text-center text-sm text-muted-foreground py-2">Nenhum contato encontrado</p>
                     )}
                   </CardContent>
                 </Card>
@@ -176,7 +178,7 @@ const NewCall = () => {
               className="w-full bg-radio hover:bg-radio-light"
               onClick={startCall}
             >
-              Start Call
+              Iniciar Chamada
             </Button>
           </CardContent>
         </Card>
