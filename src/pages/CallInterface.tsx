@@ -1,19 +1,24 @@
+
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { CallHeader } from "@/components/call/CallHeader";
 import { ParticipantGrid } from "@/components/call/ParticipantGrid";
 import { ControlPanel } from "@/components/call/ControlPanel";
 import { useCallManagement } from "@/hooks/useCallManagement";
-import { useEffect, useState } from "react";
-import { getCall, updateCallStatus, Call } from "@/services/callsService";
+import { useEffect } from "react";
+import { getCall, updateCallStatus } from "@/services/callsService";
 import { saveTranscription } from "@/services/transcriptionsService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { useState } from "react";
+import { UserPlus } from "lucide-react";
 
 const CallInterface = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [showAddParticipantDialog, setShowAddParticipantDialog] = useState(false);
   
   // Fetch call data
   const { data: callData, isLoading, error } = useQuery({
@@ -32,6 +37,7 @@ const CallInterface = () => {
       }
     },
     enabled: !!id,
+    retry: false
   });
   
   // Update call status mutation
@@ -77,7 +83,7 @@ const CallInterface = () => {
   }, [callData, id]);
   
   const addParticipant = () => {
-    toast.info("This would open a dialog to add participants");
+    setShowAddParticipantDialog(true);
   };
   
   const handleSaveTranscription = () => {
@@ -155,32 +161,67 @@ const CallInterface = () => {
   }
   
   return (
-    <div className="flex h-screen flex-col bg-background">
-      <CallHeader 
-        callName={callData.title}
-        duration={duration}
-        onAddParticipant={addParticipant}
-        onEndCall={endCall}
-      />
-      
-      {/* Main Content */}
-      <div className="flex flex-1 overflow-hidden">
-        <ParticipantGrid 
-          participants={callParticipants}
-          callType={callData.type}
-          isConnected={isConnected}
-          onToggleAudio={toggleAudio}
-        />
-        
-        <ControlPanel 
-          transcriptionText={transcriptionText}
-          isRecording={isRecording}
-          onToggleRecording={toggleRecording}
-          onSaveTranscription={handleSaveTranscription}
+    <>
+      <div className="flex h-screen flex-col bg-background">
+        <CallHeader 
+          callName={callData.title}
+          duration={duration}
+          onAddParticipant={addParticipant}
           onEndCall={endCall}
         />
+        
+        {/* Main Content */}
+        <div className="flex flex-1 overflow-hidden">
+          <ParticipantGrid 
+            participants={callParticipants}
+            callType={callData.type}
+            isConnected={isConnected}
+            onToggleAudio={toggleAudio}
+          />
+          
+          <ControlPanel 
+            transcriptionText={transcriptionText}
+            isRecording={isRecording}
+            onToggleRecording={toggleRecording}
+            onSaveTranscription={handleSaveTranscription}
+            onEndCall={endCall}
+          />
+        </div>
       </div>
-    </div>
+      
+      {/* Dialog para adicionar participantes */}
+      <Dialog open={showAddParticipantDialog} onOpenChange={setShowAddParticipantDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Adicionar Participante</DialogTitle>
+            <DialogDescription>
+              Envie um link ou convide contatos para participar da chamada.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="mt-4 flex flex-col space-y-4">
+            <div className="flex items-center justify-between rounded-md border p-3">
+              <div className="flex items-center space-x-3">
+                <UserPlus className="h-5 w-5 text-muted-foreground" />
+                <span>Link de convite</span>
+              </div>
+              <Button variant="outline" onClick={() => {
+                navigator.clipboard.writeText(window.location.href);
+                toast.success("Link copiado para a área de transferência!");
+              }}>
+                Copiar Link
+              </Button>
+            </div>
+            
+            {/* Aqui poderia ser adicionado um componente de seleção de contatos */}
+          </div>
+          
+          <DialogFooter>
+            <Button onClick={() => setShowAddParticipantDialog(false)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 
