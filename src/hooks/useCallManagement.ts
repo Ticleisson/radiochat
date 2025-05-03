@@ -1,0 +1,194 @@
+
+import { useState, useEffect } from "react";
+import { toast } from "sonner";
+import { jitsiManager, JitsiParticipant } from "@/utils/jitsiManager";
+import { useTranscriptions } from "./useTranscriptions";
+
+export interface CallData {
+  id: string;
+  name: string;
+  startTime: Date;
+  type: "audio" | "video";
+  participants: JitsiParticipant[];
+}
+
+export function useCallManagement(callId?: string) {
+  const { addTranscription } = useTranscriptions();
+  
+  // Estados da chamada
+  const [callData, setCallData] = useState<CallData>({
+    id: callId || "active1",
+    name: "Live Interview",
+    startTime: new Date(),
+    type: "audio" as "audio" | "video",
+    participants: []
+  });
+  
+  const [duration, setDuration] = useState("00:00");
+  const [isRecording, setIsRecording] = useState(true);
+  const [transcriptionText, setTranscriptionText] = useState("");
+  const [autoSaveTranscription, setAutoSaveTranscription] = useState(true);
+  const [isConnected, setIsConnected] = useState(false);
+  
+  // Configurar os manipuladores de eventos do Jitsi
+  useEffect(() => {
+    // Configura os handlers de eventos do Jitsi
+    jitsiManager.setEventHandlers({
+      onParticipantJoined: (participant) => {
+        setCallData(prev => ({
+          ...prev,
+          participants: [...prev.participants.filter(p => p.id !== participant.id), participant]
+        }));
+      },
+      onParticipantLeft: (participantId) => {
+        setCallData(prev => ({
+          ...prev,
+          participants: prev.participants.filter(p => p.id !== participantId)
+        }));
+      },
+      onAudioMuteStatusChanged: (participantId, muted) => {
+        setCallData(prev => ({
+          ...prev,
+          participants: prev.participants.map(p => 
+            p.id === participantId ? { ...p, audio: !muted } : p
+          )
+        }));
+      },
+      onVideoMuteStatusChanged: (participantId, muted) => {
+        setCallData(prev => ({
+          ...prev,
+          participants: prev.participants.map(p => 
+            p.id === participantId ? { ...p, video: !muted } : p
+          )
+        }));
+      },
+      onConnectionStatusChanged: (status) => {
+        setIsConnected(status === "connected");
+        
+        if (status === "connected") {
+          toast.success("Conectado à sala de chamada");
+          // Atualiza a lista de participantes após conexão bem-sucedida
+          setCallData(prev => ({
+            ...prev,
+            participants: jitsiManager.getAllParticipants()
+          }));
+        } else if (status === "failed") {
+          toast.error("Falha na conexão");
+        }
+      },
+      onTranscriptionReceived: (text, participantId) => {
+        // Adiciona o texto transcrito ao estado
+        setTranscriptionText(prev => {
+          const participant = callData.participants.find(p => p.id === participantId);
+          const speaker = participant ? participant.name : "Alguém";
+          const newText = `${speaker}: ${text}`;
+          return prev ? `${prev}\n${newText}` : newText;
+        });
+      }
+    });
+
+    // Limpa quando o componente é desmontado
+    return () => {
+      jitsiManager.leaveRoom();
+    };
+  }, []);
+
+  // Iniciar a chamada
+  useEffect(() => {
+    const roomName = callId || `radiozap_${Date.now().toString()}`;
+    jitsiManager.joinRoom(roomName, "You (Host)");
+    
+    // Inicia o cronômetro da chamada
+    const startTime = new Date();
+    setCallData(prev => ({ ...prev, startTime }));
+    
+    const timer = setInterval(() => {
+      const diff = Date.now() - startTime.getTime();
+      const minutes = Math.floor(diff / 60000).toString().padStart(2, '0');
+      const seconds = Math.floor((diff % 60000) / 1000).toString().padStart(2, '0');
+      setDuration(`${minutes}:${seconds}`);
+    }, 1000);
+    
+    return () => clearInterval(timer);
+  }, [callId]);
+
+  // Hook para simular transcrição em tempo real
+  useEffect(() => {
+    if (!isRecording) return;
+    
+    const transcriptionInterval = setInterval(() => {
+      if (isRecording && callData.participants.length > 0) {
+        const transcriptionParts = [
+          "Olá, hoje estamos em uma entrevista ao vivo.",
+          "Vamos discutir os principais tópicos da semana.",
+          "Obrigado por participar desta chamada.",
+          "Como vocês estão se sentindo hoje?",
+          "Nosso próximo tópico será sobre as novidades do mercado.",
+          "Agradecemos a todos pela participação.",
+        ];
+        
+        const randomPart = transcriptionParts[Math.floor(Math.random() * transcriptionParts.length)];
+        const randomParticipant = callData.participants[
+          Math.floor(Math.random() * callData.participants.length)
+        ];
+        const speaker = randomParticipant ? randomParticipant.name : "Alguém";
+        
+        setTranscriptionText(prev => {
+          const newText = `${speaker}: ${randomPart}`;
+          return prev ? `${prev}\n${newText}` : newText;
+        });
+      }
+    }, 5000);
+    
+    return () => clearInterval(transcriptionInterval);
+  }, [isRecording, callData.participants]);
+
+  // Ações de controle da chamada
+  const toggleAudio = (participantId: string) => {
+    if (participantId === "host") {
+      const newState = jitsiManager.toggleAudio();
+      toast(newState ? "Microphone unmuted" : "Microphone muted");
+    }
+  };
+  
+  const toggleRecording = () => {
+    setIsRecording(!isRecording);
+    toast.success(isRecording ? "Gravação interrompida" : "Gravação iniciada");
+  };
+  
+  const saveTranscription = () => {
+    if (!transcriptionText) {
+      toast.error("Não há transcrição para salvar.");
+      return;
+    }
+    
+    try {
+      const newTranscription = {
+        id: Date.now().toString(),
+        title: `${callData.name} - ${new Date().toLocaleDateString()}`,
+        content: transcriptionText,
+        date: new Date(),
+        callId: callData.id
+      };
+      
+      addTranscription(newTranscription);
+      toast.success("Transcrição salva com sucesso!");
+    } catch (error) {
+      console.error("Error saving transcription:", error);
+      toast.error("Erro ao salvar transcrição");
+    }
+  };
+
+  return {
+    callData,
+    duration,
+    isRecording,
+    transcriptionText,
+    autoSaveTranscription,
+    isConnected,
+    toggleAudio,
+    toggleRecording,
+    saveTranscription,
+    setAutoSaveTranscription
+  };
+}
