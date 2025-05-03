@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import MainLayout from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
@@ -41,9 +40,11 @@ const Calls = () => {
   const { data: calls = [], isLoading, error } = useQuery({
     queryKey: ['calls'],
     queryFn: fetchCalls,
-    onError: (err) => {
-      console.error("Erro ao buscar chamadas:", err);
-      toast.error("Erro ao carregar chamadas. Tente novamente.");
+    onSettled: (data, error) => {
+      if (error) {
+        console.error("Erro ao buscar chamadas:", error);
+        toast.error("Erro ao carregar chamadas. Tente novamente.");
+      }
     }
   });
   

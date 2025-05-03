@@ -27,8 +27,10 @@ const Dashboard = () => {
     queryKey: ['dashboard-calls'],
     queryFn: fetchCalls,
     staleTime: 5 * 60 * 1000,
-    onError: (error) => {
-      console.error("Erro ao buscar chamadas:", error);
+    onSettled: (data, error) => {
+      if (error) {
+        console.error("Erro ao buscar chamadas:", error);
+      }
     }
   });
   
