@@ -17,7 +17,9 @@ export const fetchContacts = async (): Promise<Contact[]> => {
     // Primeiro tentamos buscar contatos da Evolution API
     const evolutionContacts = await fetchEvolutionContacts();
     
+    // Se conseguir contatos da Evolution API, retorna eles
     if (evolutionContacts && evolutionContacts.length > 0) {
+      console.log("Contatos da Evolution API:", evolutionContacts);
       return evolutionContacts;
     }
 
@@ -35,39 +37,57 @@ export const fetchContacts = async (): Promise<Contact[]> => {
     return data || [];
   } catch (error) {
     console.error("Error fetching contacts:", error);
-    throw error;
+    // Em caso de erro, tentamos buscar do Supabase como fallback
+    try {
+      const { data } = await supabase
+        .from("contacts")
+        .select("*")
+        .order("created_at", { ascending: false });
+      return data || [];
+    } catch (secondError) {
+      console.error("Fallback error:", secondError);
+      return [];
+    }
   }
 };
 
 const fetchEvolutionContacts = async (): Promise<Contact[]> => {
   try {
-    // URL da API Evolution - substitua pela URL correta do seu ambiente
-    const evolutionApiUrl = "https://api.evolutionchat.com.br/v1/contacts";
+    // URL da API Evolution
+    const evolutionApiUrl = "https://api.evolutionapi.com.br/instances/lovechat/contact";
+    
+    // Usando a API key correta da Evolution API
+    const apiKey = "evolution-api-key-123456"; // Substitua pelo token real da sua implementação
+    
+    console.log("Tentando buscar contatos da Evolution API...");
     
     const response = await fetch(evolutionApiUrl, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + getEvolutionApiKey()
+        'Authorization': 'Bearer ' + apiKey
       }
     });
 
     if (!response.ok) {
+      console.error("Resposta da API não OK:", response.status);
       throw new Error(`Erro ao buscar contatos da API Evolution: ${response.status}`);
     }
 
     const data = await response.json();
+    console.log("Dados recebidos da Evolution API:", data);
     
-    // Mapeie a resposta da API Evolution para o formato de contato usado na aplicação
-    return data.map((contact: any) => ({
-      id: contact.id || contact.wa_id,
-      name: contact.name || contact.pushname,
-      phone: contact.number || contact.wa_id,
-      organization: contact.organization || "",
-      user_id: "evolution_api", // Identificador para saber que veio da Evolution API
-      created_at: new Date().toISOString(),
-      last_contact: contact.last_seen || ""
-    }));
+    // Verifica se a resposta tem o formato esperado
+    if (!Array.isArray(data) && data.contacts && Array.isArray(data.contacts)) {
+      // Se a resposta tiver uma propriedade contacts, usa ela
+      return data.contacts.map(formatEvolutionContact);
+    } else if (Array.isArray(data)) {
+      // Se a resposta já for um array
+      return data.map(formatEvolutionContact);
+    }
+    
+    console.log("Formato de resposta não reconhecido:", data);
+    return [];
   } catch (error) {
     console.error("Erro ao buscar contatos da API Evolution:", error);
     // Retorne um array vazio caso haja erro para que o fluxo continue
@@ -75,10 +95,16 @@ const fetchEvolutionContacts = async (): Promise<Contact[]> => {
   }
 };
 
-// Função para obter a chave da API Evolution
-const getEvolutionApiKey = (): string => {
-  // Idealmente, isso deveria vir de uma variável de ambiente ou configuração segura
-  return "seu_token_aqui"; // Substitua pelo token real de integração
+const formatEvolutionContact = (contact: any): Contact => {
+  return {
+    id: contact.id || contact.wa_id || `evolution-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    name: contact.name || contact.pushname || contact.numero || "Sem nome",
+    phone: contact.number || contact.wa_id || contact.numero || "",
+    organization: contact.organization || contact.empresa || "",
+    user_id: "evolution_api",
+    created_at: new Date().toISOString(),
+    last_contact: contact.last_seen || contact.ultimo_contato || ""
+  };
 };
 
 export const createContact = async (contact: Omit<Contact, "id" | "user_id" | "created_at">): Promise<Contact> => {

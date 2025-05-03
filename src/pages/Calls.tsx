@@ -19,18 +19,8 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-
-interface CallRecord {
-  id: string;
-  name: string;
-  date: string;
-  time: string;
-  duration: string;
-  participants: number;
-  type: "audio" | "video";
-  status: "completed" | "scheduled" | "missed";
-  recording?: boolean;
-}
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { fetchCalls, createCall, deleteCall, updateCallStatus, Call } from "@/services/callsService";
 
 const Calls = () => {
   const navigate = useNavigate();
@@ -45,70 +35,79 @@ const Calls = () => {
     participants: [] as string[]
   });
   
-  // Dados de exemplo de chamadas
-  const [calls, setCalls] = useState<CallRecord[]>([
-    {
-      id: "1", 
-      name: "Entrevista - Prefeito",
-      date: "30/04/2025",
-      time: "09:30",
-      duration: "45:22",
-      participants: 3,
-      type: "audio",
-      status: "completed",
-      recording: true
-    },
-    {
-      id: "2", 
-      name: "Debate Esportivo",
-      date: "02/05/2025",
-      time: "14:15",
-      duration: "32:18",
-      participants: 4,
-      type: "video",
-      status: "completed",
-      recording: true
-    },
-    {
-      id: "3", 
-      name: "Entrevista - Secretário de Saúde",
-      date: "05/05/2025",
-      time: "10:00",
-      duration: "--:--",
-      participants: 2,
-      type: "audio",
-      status: "scheduled"
-    },
-    {
-      id: "4", 
-      name: "Programa Cultural",
-      date: "28/04/2025",
-      time: "16:30",
-      duration: "--:--",
-      participants: 3,
-      type: "audio",
-      status: "missed"
+  const queryClient = useQueryClient();
+
+  // Buscar chamadas usando React Query
+  const { data: calls = [], isLoading, error } = useQuery({
+    queryKey: ['calls'],
+    queryFn: fetchCalls,
+    onError: (err) => {
+      console.error("Erro ao buscar chamadas:", err);
+      toast.error("Erro ao carregar chamadas. Tente novamente.");
     }
-  ]);
+  });
+  
+  // Mutação para criar chamada
+  const createCallMutation = useMutation({
+    mutationFn: (callData: any) => {
+      return createCall({
+        title: callData.name,
+        type: callData.type,
+        status: "scheduled"
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['calls'] });
+      setIsScheduleDialogOpen(false);
+      setNewCall({
+        name: "",
+        date: "",
+        time: "",
+        type: "audio",
+        participants: []
+      });
+      toast.success("Chamada agendada com sucesso");
+    },
+    onError: (err) => {
+      console.error("Erro ao agendar chamada:", err);
+      toast.error("Erro ao agendar chamada");
+    }
+  });
+
+  // Mutação para excluir chamada
+  const deleteCallMutation = useMutation({
+    mutationFn: deleteCall,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['calls'] });
+      toast.success("Chamada removida com sucesso");
+    },
+    onError: (err) => {
+      console.error("Erro ao excluir chamada:", err);
+      toast.error("Erro ao remover chamada");
+    }
+  });
   
   // Filtrar chamadas por termo de pesquisa e filtro ativo
   const filteredCalls = calls.filter(call => {
     // Filtro de texto
     const matchesSearch = 
-      call.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      call.date.includes(searchTerm);
+      call.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (call.created_at && call.created_at.includes(searchTerm));
       
     // Filtro de status
     const matchesFilter = 
       activeFilter === "all" || 
-      call.status === activeFilter;
+      (activeFilter === "completed" && call.status === "completed") ||
+      (activeFilter === "scheduled" && call.status === "scheduled") ||
+      (activeFilter === "missed" && call.status === "missed");
       
     return matchesSearch && matchesFilter;
   });
   
   const handleDeleteCall = (id: string) => {
-    setCalls(calls.filter(call => call.id !== id));
-    toast.success("Chamada removida com sucesso");
+    if (confirm("Tem certeza que deseja excluir esta chamada?")) {
+      deleteCallMutation.mutate(id);
+    }
   };
   
   const handleScheduleCall = () => {
@@ -116,35 +115,31 @@ const Calls = () => {
       toast.error("Por favor, preencha todos os campos obrigatórios");
       return;
     }
-    
-    // Adicionar nova chamada agendada
-    const newId = (calls.length + 1).toString();
-    setCalls([...calls, {
-      id: newId,
-      name: newCall.name,
-      date: newCall.date,
-      time: newCall.time,
-      duration: "--:--",
-      participants: newCall.participants.length || 0,
-      type: newCall.type,
-      status: "scheduled"
-    }]);
-    
-    setNewCall({
-      name: "",
-      date: "",
-      time: "",
-      type: "audio",
-      participants: []
-    });
-    
-    setIsScheduleDialogOpen(false);
-    toast.success("Chamada agendada com sucesso");
+
+    // Criar nova chamada agendada
+    createCallMutation.mutate(newCall);
   };
   
   const handleJoinCall = (id: string) => {
     navigate(`/call/${id}`);
   };
+
+  // Formatar a data em formato brasileiro
+  const formatDate = (dateString: string | undefined) => {
+    if (!dateString) return "N/A";
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    }).format(date);
+  };
+  
+  if (error) {
+    console.error("Error fetching calls:", error);
+  }
   
   return (
     <MainLayout>
@@ -237,23 +232,29 @@ const Calls = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredCalls.length > 0 ? (
+                  {isLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="h-24 text-center">
+                        Carregando chamadas...
+                      </TableCell>
+                    </TableRow>
+                  ) : filteredCalls.length > 0 ? (
                     filteredCalls.map((call) => (
                       <TableRow key={call.id}>
-                        <TableCell className="font-medium">{call.name}</TableCell>
+                        <TableCell className="font-medium">{call.title}</TableCell>
                         <TableCell>
-                          {call.date} - {call.time}
+                          {formatDate(call.created_at)}
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center">
                             <Clock className="mr-2 h-4 w-4 text-muted-foreground" />
-                            {call.duration}
+                            {call.status === "completed" ? "15:00" : "--:--"}
                           </div>
                         </TableCell>
                         <TableCell className="text-center">
                           <div className="flex items-center justify-center">
                             <Users className="mr-1 h-4 w-4 text-muted-foreground" />
-                            {call.participants}
+                            2
                           </div>
                         </TableCell>
                         <TableCell className="text-center">
@@ -268,11 +269,15 @@ const Calls = () => {
                             <span className={`rounded-full px-2 py-1 text-xs font-medium ${
                               call.status === "completed" ? "bg-green-100 text-green-800" : 
                               call.status === "scheduled" ? "bg-blue-100 text-blue-800" : 
-                              "bg-red-100 text-red-800"
+                              call.status === "missed" ? "bg-red-100 text-red-800" :
+                              call.status === "active" ? "bg-yellow-100 text-yellow-800" :
+                              "bg-gray-100 text-gray-800"
                             }`}>
                               {call.status === "completed" ? "Concluída" : 
                                call.status === "scheduled" ? "Agendada" : 
-                               "Perdida"}
+                               call.status === "missed" ? "Perdida" :
+                               call.status === "active" ? "Ativa" :
+                               call.status}
                             </span>
                           </div>
                         </TableCell>
@@ -395,9 +400,17 @@ const Calls = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsScheduleDialogOpen(false)}>Cancelar</Button>
-            <Button className="bg-radio hover:bg-radio-light" onClick={handleScheduleCall}>
-              <Calendar className="mr-1 h-4 w-4" />
-              Agendar
+            <Button 
+              className="bg-radio hover:bg-radio-light" 
+              onClick={handleScheduleCall}
+              disabled={createCallMutation.isPending}
+            >
+              {createCallMutation.isPending ? "Agendando..." : (
+                <>
+                  <Calendar className="mr-1 h-4 w-4" />
+                  Agendar
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
