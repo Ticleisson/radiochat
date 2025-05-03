@@ -112,8 +112,8 @@ class JitsiConnection {
 
   public onConnectionSuccess() {
     try {
-      if (this.eventHandlers.onConnectionStatusChanged) {
-        this.eventHandlers.onConnectionStatusChanged("connected");
+      if (this.eventHandlers.connectionStatusChanged) {
+        this.eventHandlers.connectionStatusChanged("connected");
       }
       
       const JitsiMeetJS = window.JitsiMeetJS;
@@ -131,16 +131,16 @@ class JitsiConnection {
     console.error('Connection failed!');
     toast.error("Falha na conexão com o servidor de chamadas");
     
-    if (this.eventHandlers.onConnectionStatusChanged) {
-      this.eventHandlers.onConnectionStatusChanged("failed");
+    if (this.eventHandlers.connectionStatusChanged) {
+      this.eventHandlers.connectionStatusChanged("failed");
     }
   }
 
   public onConnectionDisconnected() {
     console.log('Connection disconnected!');
     
-    if (this.eventHandlers.onConnectionStatusChanged) {
-      this.eventHandlers.onConnectionStatusChanged("disconnected");
+    if (this.eventHandlers.connectionStatusChanged) {
+      this.eventHandlers.connectionStatusChanged("disconnected");
     }
   }
 

@@ -1,7 +1,7 @@
 
 import React from "react";
 import { ParticipantCard } from "./ParticipantCard";
-import { JitsiParticipant } from "@/utils/jitsiManager";
+import { JitsiParticipant } from "@/utils/jitsi/types";
 
 interface ParticipantGridProps {
   participants: JitsiParticipant[];

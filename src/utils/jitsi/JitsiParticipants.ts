@@ -40,8 +40,8 @@ class JitsiParticipants {
     
     this.participants['host'] = localParticipant;
     
-    if (this.eventHandlers.onParticipantJoined) {
-      this.eventHandlers.onParticipantJoined(localParticipant);
+    if (this.eventHandlers.participantJoined) {
+      this.eventHandlers.participantJoined(localParticipant);
     }
 
     // Propaga o evento para o JitsiConnection
@@ -61,14 +61,14 @@ class JitsiParticipants {
     
     this.participants[id] = participant;
     
-    if (this.eventHandlers.onParticipantJoined) {
-      this.eventHandlers.onParticipantJoined(participant);
+    if (this.eventHandlers.participantJoined) {
+      this.eventHandlers.participantJoined(participant);
     }
   }
 
   public onUserLeft(id: string) {
-    if (this.eventHandlers.onParticipantLeft) {
-      this.eventHandlers.onParticipantLeft(id);
+    if (this.eventHandlers.participantLeft) {
+      this.eventHandlers.participantLeft(id);
     }
     
     delete this.participants[id];
@@ -90,8 +90,8 @@ class JitsiParticipants {
     if (this.participants[participantId]) {
       this.participants[participantId].audio = !muted;
       
-      if (this.eventHandlers.onAudioMuteStatusChanged) {
-        this.eventHandlers.onAudioMuteStatusChanged(participantId, muted);
+      if (this.eventHandlers.audioMuteStatusChanged) {
+        this.eventHandlers.audioMuteStatusChanged(participantId, muted);
       }
     }
   }
@@ -100,8 +100,8 @@ class JitsiParticipants {
     if (this.participants[participantId]) {
       this.participants[participantId].video = !muted;
       
-      if (this.eventHandlers.onVideoMuteStatusChanged) {
-        this.eventHandlers.onVideoMuteStatusChanged(participantId, muted);
+      if (this.eventHandlers.videoMuteStatusChanged) {
+        this.eventHandlers.videoMuteStatusChanged(participantId, muted);
       }
     }
   }

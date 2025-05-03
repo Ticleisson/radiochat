@@ -41,8 +41,8 @@ class JitsiTracks {
         (status: string) => console.log('Transcription status:', status));
       room.on(JitsiMeetJS.events.conference.TRANSCRIPT_RECEIVED, 
         (participant: any, text: string) => {
-          if (this.eventHandlers.onTranscriptionReceived) {
-            this.eventHandlers.onTranscriptionReceived(text, participant.getId());
+          if (this.eventHandlers.transcriptionReceived) {
+            this.eventHandlers.transcriptionReceived(text, participant.getId());
           }
         });
     }
