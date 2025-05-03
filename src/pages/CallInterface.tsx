@@ -42,6 +42,7 @@ const CallInterface = () => {
   
   const handleSaveTranscriptionForCall = () => {
     if (callData && id) {
+      // Fix the transcription handling here - use an empty string as default if transcriptionText is undefined
       handleSaveTranscription(callData.title, callData.transcriptionText || '');
     }
   };

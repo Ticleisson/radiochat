@@ -12,6 +12,7 @@ export interface Call {
   recording?: boolean;
   created_at?: string;
   updated_at?: string;
+  transcriptionText?: string; // Added this property
 }
 
 export const fetchCalls = async (): Promise<Call[]> => {
