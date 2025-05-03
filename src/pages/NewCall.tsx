@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import MainLayout from "@/components/layout/MainLayout";
@@ -11,6 +10,7 @@ import { Mic, Video, ChevronLeft, Search, Plus, X, Loader2 } from "lucide-react"
 import { toast } from "sonner";
 import { Contact, fetchContacts } from "@/services/contactsService";
 import { useQuery } from "@tanstack/react-query";
+import { createCall } from "@/services/callsService";
 
 const NewCall = () => {
   const navigate = useNavigate();
@@ -56,7 +56,7 @@ const NewCall = () => {
     setSelectedContacts(selectedContacts.filter(contact => contact.id !== id));
   };
   
-  const startCall = () => {
+  const startCall = async () => {
     if (!callName) {
       toast.error("Por favor, informe um nome para a chamada");
       return;
@@ -67,10 +67,24 @@ const NewCall = () => {
       return;
     }
     
-    toast.success("Iniciando chamada...");
-    setTimeout(() => {
+    try {
+      // Criar uma chamada no banco de dados
+      const newCall = await createCall({
+        title: callName,
+        type: callType,
+        status: "pending",
+        contact_id: selectedContacts[0].id // Usamos o primeiro contato selecionado
+      });
+      
+      toast.success("Chamada criada com sucesso!");
+      // Navegar para a página de chamada usando o ID real da chamada criada
+      navigate(`/call/${newCall.id}`);
+    } catch (error) {
+      console.error("Erro ao criar chamada:", error);
+      toast.error("Erro ao criar chamada. Tentando modo offline...");
+      // Em caso de erro, navegamos para a chamada "new" temporária
       navigate("/call/new");
-    }, 1000);
+    }
   };
   
   return (

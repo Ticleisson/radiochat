@@ -73,9 +73,12 @@ export const getCall = async (id: string): Promise<Call> => {
 
 export const createCall = async (call: Omit<Call, "id" | "user_id" | "created_at" | "updated_at">): Promise<Call> => {
   try {
+    // Se estamos vindo de uma chamada temporária (id "new"), garantimos que não usamos esse ID
+    const callToCreate = { ...call };
+    
     const { data, error } = await supabase
       .from("calls")
-      .insert([call])
+      .insert([callToCreate])
       .select()
       .single();
 
@@ -94,6 +97,18 @@ export const createCall = async (call: Omit<Call, "id" | "user_id" | "created_at
 
 export const updateCallStatus = async (id: string, status: string): Promise<Call> => {
   try {
+    // Se o ID for "new", não tentamos atualizar no banco
+    if (id === "new") {
+      console.log("Chamada temporária, não atualizando status no banco");
+      return {
+        id: "new",
+        title: "Nova Chamada",
+        type: "audio",
+        status: status,
+        user_id: "",
+      };
+    }
+    
     const { data, error } = await supabase
       .from("calls")
       .update({ status })
@@ -115,6 +130,12 @@ export const updateCallStatus = async (id: string, status: string): Promise<Call
 
 export const deleteCall = async (id: string): Promise<void> => {
   try {
+    // Se o ID for "new", não há nada a excluir no banco
+    if (id === "new") {
+      console.log("Chamada temporária, não há nada a excluir no banco");
+      return;
+    }
+    
     const { error } = await supabase
       .from("calls")
       .delete()

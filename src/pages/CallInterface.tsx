@@ -1,4 +1,3 @@
-
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { CallHeader } from "@/components/call/CallHeader";
@@ -6,7 +5,7 @@ import { ParticipantGrid } from "@/components/call/ParticipantGrid";
 import { ControlPanel } from "@/components/call/ControlPanel";
 import { useCallManagement } from "@/hooks/useCallManagement";
 import { useEffect, useState } from "react";
-import { getCall, updateCallStatus } from "@/services/callsService";
+import { getCall, updateCallStatus, Call } from "@/services/callsService";
 import { saveTranscription } from "@/services/transcriptionsService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -23,7 +22,10 @@ const CallInterface = () => {
       if (!id) return Promise.reject("No call ID provided");
       
       try {
-        return await getCall(id);
+        console.log(`Buscando detalhes da chamada ID: ${id}`);
+        const call = await getCall(id);
+        console.log("Dados da chamada recuperados:", call);
+        return call;
       } catch (error) {
         console.error("Error fetching call:", error);
         throw error;
@@ -62,11 +64,13 @@ const CallInterface = () => {
   
   useEffect(() => {
     if (callData && id) {
+      console.log(`Iniciando chamada ${id} com dados:`, callData);
       // Start the call when data is loaded
       startCall(callData);
       
       // Update call status to active if it's pending and not a new call
       if (callData.status === 'pending' && id !== 'new') {
+        console.log(`Atualizando status da chamada ${id} para active`);
         updateCallStatusMutation.mutate({ id, status: 'active' });
       }
     }
@@ -85,6 +89,8 @@ const CallInterface = () => {
       call_id: id !== 'new' ? id : undefined
     };
     
+    console.log("Salvando transcrição:", transcriptionData);
+    
     saveTranscriptionMutation.mutate(transcriptionData, {
       onSuccess: () => {
         toast.success("Transcrição salva com sucesso!");
@@ -97,6 +103,8 @@ const CallInterface = () => {
   };
   
   const endCall = () => {
+    console.log(`Encerrando chamada ${id}`);
+    
     // Save transcription automatically at call end
     if (autoSaveTranscription && transcriptionText) {
       handleSaveTranscription();
@@ -107,6 +115,7 @@ const CallInterface = () => {
     
     // Update call status in the database if it's not a new call
     if (id && id !== 'new') {
+      console.log(`Atualizando status da chamada ${id} para completed`);
       updateCallStatusMutation.mutate(
         { id, status: 'completed' },
         {
