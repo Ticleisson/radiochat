@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import MainLayout from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
@@ -36,14 +37,16 @@ const Calls = () => {
   
   const queryClient = useQueryClient();
 
-  // Buscar chamadas usando React Query
+  // Buscar chamadas usando React Query com tratamento de erro corrigido
   const { data: calls = [], isLoading, error } = useQuery({
     queryKey: ['calls'],
-    queryFn: fetchCalls,
-    onSettled: (data, error) => {
-      if (error) {
+    queryFn: async () => {
+      try {
+        return await fetchCalls();
+      } catch (error) {
         console.error("Erro ao buscar chamadas:", error);
         toast.error("Erro ao carregar chamadas. Tente novamente.");
+        throw error;
       }
     }
   });

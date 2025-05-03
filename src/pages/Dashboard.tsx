@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import MainLayout from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
@@ -25,13 +24,15 @@ const Dashboard = () => {
   // Buscar chamadas usando o serviço real
   const { data: callsData = [], isLoading: loadingCalls } = useQuery({
     queryKey: ['dashboard-calls'],
-    queryFn: fetchCalls,
-    staleTime: 5 * 60 * 1000,
-    onSettled: (data, error) => {
-      if (error) {
+    queryFn: async () => {
+      try {
+        return await fetchCalls();
+      } catch (error) {
         console.error("Erro ao buscar chamadas:", error);
+        throw error;
       }
-    }
+    },
+    staleTime: 5 * 60 * 1000,
   });
   
   // Filtrar chamadas recentes (completadas)
