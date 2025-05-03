@@ -9,7 +9,153 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      calls: {
+        Row: {
+          contact_id: string | null
+          created_at: string
+          id: string
+          recording: boolean | null
+          status: string
+          title: string
+          type: Database["public"]["Enums"]["call_type"]
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          contact_id?: string | null
+          created_at?: string
+          id?: string
+          recording?: boolean | null
+          status?: string
+          title: string
+          type?: Database["public"]["Enums"]["call_type"]
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          contact_id?: string | null
+          created_at?: string
+          id?: string
+          recording?: boolean | null
+          status?: string
+          title?: string
+          type?: Database["public"]["Enums"]["call_type"]
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calls_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contacts: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          organization: string | null
+          phone: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          organization?: string | null
+          phone: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          organization?: string | null
+          phone?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      generated_content: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          title: string
+          transcription_id: string | null
+          type: string
+          user_id: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          title: string
+          transcription_id?: string | null
+          type: string
+          user_id?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          title?: string
+          transcription_id?: string | null
+          type?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generated_content_transcription_id_fkey"
+            columns: ["transcription_id"]
+            isOneToOne: false
+            referencedRelation: "transcriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transcriptions: {
+        Row: {
+          call_id: string | null
+          content: string
+          created_at: string
+          id: string
+          title: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          call_id?: string | null
+          content: string
+          created_at?: string
+          id?: string
+          title: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          call_id?: string | null
+          content?: string
+          created_at?: string
+          id?: string
+          title?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transcriptions_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: false
+            referencedRelation: "calls"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -18,7 +164,8 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      call_status: "completed" | "scheduled" | "missed" | "active"
+      call_type: "audio" | "video"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -133,6 +280,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      call_status: ["completed", "scheduled", "missed", "active"],
+      call_type: ["audio", "video"],
+    },
   },
 } as const

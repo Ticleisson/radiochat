@@ -9,14 +9,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranscriptions } from "@/hooks/useTranscriptions";
-
-interface Participant {
-  id: string;
-  name: string;
-  status: "connected" | "connecting" | "disconnected";
-  audio: boolean;
-  video: boolean;
-}
+import { jitsiManager, JitsiParticipant } from "@/utils/jitsiManager";
 
 const CallInterface = () => {
   const { id } = useParams<{ id: string }>();
@@ -26,67 +19,131 @@ const CallInterface = () => {
   const [callData, setCallData] = useState({
     id: id || "active1",
     name: "Live Interview",
-    startTime: new Date(Date.now() - 15 * 60000), // Started 15 minutes ago
+    startTime: new Date(),
     type: "audio" as "audio" | "video",
-    participants: [
-      { id: "p1", name: "John Smith", status: "connected" as const, audio: true, video: false },
-      { id: "p2", name: "Maria Garcia", status: "connected" as const, audio: true, video: false },
-      { id: "host", name: "You (Host)", status: "connected" as const, audio: true, video: false },
-    ]
+    participants: [] as JitsiParticipant[]
   });
   
   const [duration, setDuration] = useState("00:00");
   const [isRecording, setIsRecording] = useState(true); // Auto-recording by default
   const [transcriptionText, setTranscriptionText] = useState("");
   const [autoSaveTranscription, setAutoSaveTranscription] = useState(true);
+  const [isConnected, setIsConnected] = useState(false);
   
+  // Inicializa a chamada quando o componente é montado
   useEffect(() => {
+    // Configura os handlers de eventos do Jitsi
+    jitsiManager.setEventHandlers({
+      onParticipantJoined: (participant) => {
+        setCallData(prev => ({
+          ...prev,
+          participants: [...prev.participants.filter(p => p.id !== participant.id), participant]
+        }));
+      },
+      onParticipantLeft: (participantId) => {
+        setCallData(prev => ({
+          ...prev,
+          participants: prev.participants.filter(p => p.id !== participantId)
+        }));
+      },
+      onAudioMuteStatusChanged: (participantId, muted) => {
+        setCallData(prev => ({
+          ...prev,
+          participants: prev.participants.map(p => 
+            p.id === participantId ? { ...p, audio: !muted } : p
+          )
+        }));
+      },
+      onVideoMuteStatusChanged: (participantId, muted) => {
+        setCallData(prev => ({
+          ...prev,
+          participants: prev.participants.map(p => 
+            p.id === participantId ? { ...p, video: !muted } : p
+          )
+        }));
+      },
+      onConnectionStatusChanged: (status) => {
+        setIsConnected(status === "connected");
+        
+        if (status === "connected") {
+          toast.success("Conectado à sala de chamada");
+          // Atualiza a lista de participantes após conexão bem-sucedida
+          setCallData(prev => ({
+            ...prev,
+            participants: jitsiManager.getAllParticipants()
+          }));
+        } else if (status === "failed") {
+          toast.error("Falha na conexão");
+        }
+      },
+      onTranscriptionReceived: (text, participantId) => {
+        // Adiciona o texto transcrito ao estado
+        setTranscriptionText(prev => {
+          const participant = callData.participants.find(p => p.id === participantId);
+          const speaker = participant ? participant.name : "Alguém";
+          const newText = `${speaker}: ${text}`;
+          return prev ? `${prev}\n${newText}` : newText;
+        });
+      }
+    });
+    
+    // Inicia a chamada
+    const roomName = id || `radiozap_${Date.now().toString()}`;
+    jitsiManager.joinRoom(roomName, "You (Host)");
+    
+    // Inicia o cronômetro da chamada
+    const startTime = new Date();
+    setCallData(prev => ({ ...prev, startTime }));
+    
     const timer = setInterval(() => {
-      const diff = Date.now() - callData.startTime.getTime();
+      const diff = Date.now() - startTime.getTime();
       const minutes = Math.floor(diff / 60000).toString().padStart(2, '0');
       const seconds = Math.floor((diff % 60000) / 1000).toString().padStart(2, '0');
       setDuration(`${minutes}:${seconds}`);
     }, 1000);
     
-    return () => clearInterval(timer);
-  }, [callData.startTime]);
+    // Limpa quando o componente é desmontado
+    return () => {
+      clearInterval(timer);
+      jitsiManager.leaveRoom();
+    };
+  }, [id]);
 
-  // Simulate transcription generation when component mounts (automatic recording)
+  // Simulate transcription generation when isRecording changes
   useEffect(() => {
-    // Simulate real-time transcription as the call progresses
+    if (!isRecording) return;
+    
+    // Simulate real-time transcription for demo purposes
     const transcriptionInterval = setInterval(() => {
-      if (isRecording) {
-        // In a real app, this would be updated continuously from a real transcription service
+      if (isRecording && callData.participants.length > 0) {
+        const transcriptionParts = [
+          "Olá, hoje estamos em uma entrevista ao vivo.",
+          "Vamos discutir os principais tópicos da semana.",
+          "Obrigado por participar desta chamada.",
+          "Como vocês estão se sentindo hoje?",
+          "Nosso próximo tópico será sobre as novidades do mercado.",
+          "Agradecemos a todos pela participação.",
+        ];
+        
+        const randomPart = transcriptionParts[Math.floor(Math.random() * transcriptionParts.length)];
+        const randomParticipant = callData.participants[
+          Math.floor(Math.random() * callData.participants.length)
+        ];
+        const speaker = randomParticipant ? randomParticipant.name : "Alguém";
+        
         setTranscriptionText(prev => {
-          const transcriptionParts = [
-            "Olá, hoje estamos em uma entrevista ao vivo.",
-            "Vamos discutir os principais tópicos da semana.",
-            "Obrigado por participar desta chamada.",
-            "Como vocês estão se sentindo hoje?",
-            "Nosso próximo tópico será sobre as novidades do mercado.",
-            "Agradecemos a todos pela participação.",
-          ];
-          
-          const randomPart = transcriptionParts[Math.floor(Math.random() * transcriptionParts.length)];
-          return prev ? `${prev}\n${randomPart}` : randomPart;
+          const newText = `${speaker}: ${randomPart}`;
+          return prev ? `${prev}\n${newText}` : newText;
         });
       }
-    }, 5000); // Update every 5 seconds to simulate real-time transcription
+    }, 5000);
     
     return () => clearInterval(transcriptionInterval);
-  }, [isRecording]);
+  }, [isRecording, callData.participants]);
   
   const toggleAudio = (participantId: string) => {
-    setCallData(prev => ({
-      ...prev,
-      participants: prev.participants.map(p => 
-        p.id === participantId ? { ...p, audio: !p.audio } : p
-      )
-    }));
-    
-    // If it's the host
     if (participantId === "host") {
-      const newState = !callData.participants.find(p => p.id === "host")?.audio;
+      const newState = jitsiManager.toggleAudio();
       toast(newState ? "Microphone unmuted" : "Microphone muted");
     }
   };
@@ -99,6 +156,8 @@ const CallInterface = () => {
     } else {
       toast.success("Chamada finalizada");
     }
+    
+    jitsiManager.leaveRoom();
     navigate("/dashboard");
   };
   
@@ -189,6 +248,7 @@ const CallInterface = () => {
                       size="icon" 
                       className={`${participant.audio ? 'bg-green-100 text-green-700' : 'text-muted-foreground'}`}
                       onClick={() => toggleAudio(participant.id)}
+                      disabled={participant.id !== 'host'} // Só pode controlar o próprio áudio
                     >
                       {participant.audio ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
                     </Button>
@@ -206,6 +266,13 @@ const CallInterface = () => {
                 </CardContent>
               </Card>
             ))}
+
+            {/* Mensagem quando não há participantes */}
+            {callData.participants.length === 0 && (
+              <div className="col-span-3 flex h-48 items-center justify-center text-muted-foreground">
+                {isConnected ? "Aguardando participantes..." : "Conectando à sala..."}
+              </div>
+            )}
           </div>
         </div>
         
