@@ -1,3 +1,4 @@
+
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { CallHeader } from "@/components/call/CallHeader";
@@ -18,7 +19,16 @@ const CallInterface = () => {
   // Fetch call data
   const { data: callData, isLoading, error } = useQuery({
     queryKey: ['call', id],
-    queryFn: () => id ? getCall(id) : Promise.reject("No call ID provided"),
+    queryFn: async () => {
+      if (!id) return Promise.reject("No call ID provided");
+      
+      try {
+        return await getCall(id);
+      } catch (error) {
+        console.error("Error fetching call:", error);
+        throw error;
+      }
+    },
     enabled: !!id,
   });
   
@@ -55,8 +65,8 @@ const CallInterface = () => {
       // Start the call when data is loaded
       startCall(callData);
       
-      // Update call status to active if it's pending
-      if (callData.status === 'pending') {
+      // Update call status to active if it's pending and not a new call
+      if (callData.status === 'pending' && id !== 'new') {
         updateCallStatusMutation.mutate({ id, status: 'active' });
       }
     }
@@ -72,7 +82,7 @@ const CallInterface = () => {
     const transcriptionData = {
       title: `Transcrição: ${callData?.title || 'Chamada'}`,
       content: transcriptionText,
-      call_id: id
+      call_id: id !== 'new' ? id : undefined
     };
     
     saveTranscriptionMutation.mutate(transcriptionData, {
@@ -95,8 +105,8 @@ const CallInterface = () => {
     // End the call session
     endCallSession();
     
-    // Update call status in the database
-    if (id) {
+    // Update call status in the database if it's not a new call
+    if (id && id !== 'new') {
       updateCallStatusMutation.mutate(
         { id, status: 'completed' },
         {

@@ -35,6 +35,19 @@ export const fetchCalls = async (): Promise<Call[]> => {
 
 export const getCall = async (id: string): Promise<Call> => {
   try {
+    // Verificar se o ID é "new" - neste caso, retornamos um objeto de chamada vazio
+    if (id === "new") {
+      console.log("Criando nova chamada temporária");
+      return {
+        id: "new",
+        title: "Nova Chamada",
+        type: "audio",
+        status: "pending",
+        user_id: "",
+      };
+    }
+
+    // Se não for "new", buscamos do banco de dados normalmente
     const { data, error } = await supabase
       .from("calls")
       .select("*")
