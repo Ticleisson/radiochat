@@ -1,8 +1,9 @@
 
-import { ReactNode, useState, useEffect } from "react";
+import { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import TopBar from "./TopBar";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -10,14 +11,14 @@ interface MainLayoutProps {
 
 const MainLayout = ({ children }: MainLayoutProps) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const { user } = useAuth();
   const navigate = useNavigate();
   
   useEffect(() => {
-    const user = localStorage.getItem("user");
     if (!user) {
-      navigate("/");
+      navigate("/auth");
     }
-  }, [navigate]);
+  }, [user, navigate]);
 
   return (
     <div className="flex h-screen bg-background">

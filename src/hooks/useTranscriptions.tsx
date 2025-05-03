@@ -1,8 +1,9 @@
 
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { Transcription } from "@/types/transcription";
+import { Transcription, fetchTranscriptions, deleteTranscription, updateTranscription } from "@/services/transcriptionsService";
 import { GeneratedContent } from "@/types/generatedContent";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 // Helper to fetch the DeepSeek API key from localStorage
 const getDeepSeekApiKey = () => {
@@ -20,48 +21,41 @@ const getDeepSeekApiKey = () => {
 };
 
 export function useTranscriptions() {
-  const [transcriptions, setTranscriptions] = useState<Transcription[]>([]);
   const [generatedContent, setGeneratedContent] = useState<GeneratedContent | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
-
-  // Load transcriptions from localStorage on mount
-  useEffect(() => {
-    const savedTranscriptions = localStorage.getItem("transcriptions");
-    if (savedTranscriptions) {
-      try {
-        setTranscriptions(JSON.parse(savedTranscriptions));
-      } catch (error) {
-        console.error("Error parsing transcriptions:", error);
-        toast.error("Erro ao carregar transcrições.");
-      }
+  
+  const queryClient = useQueryClient();
+  
+  // Fetch transcriptions using React Query
+  const { data: transcriptions = [] } = useQuery({
+    queryKey: ['transcriptions'],
+    queryFn: fetchTranscriptions,
+  });
+  
+  // Delete transcription mutation
+  const deleteTranscriptionMutation = useMutation({
+    mutationFn: deleteTranscription,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['transcriptions'] });
     }
-  }, []);
+  });
+  
+  // Add/Update transcription mutation
+  const updateTranscriptionMutation = useMutation({
+    mutationFn: ({ id, updates }: { id: string; updates: Partial<Transcription> }) =>
+      updateTranscription(id, updates),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['transcriptions'] });
+    }
+  });
 
-  // Save transcriptions to localStorage whenever they change
-  useEffect(() => {
-    localStorage.setItem("transcriptions", JSON.stringify(transcriptions));
-  }, [transcriptions]);
-
-  const addTranscription = (transcription: Transcription) => {
-    setTranscriptions(prevTranscriptions => {
-      const existingIndex = prevTranscriptions.findIndex(t => t.id === transcription.id);
-      
-      if (existingIndex >= 0) {
-        // Update existing transcription
-        const updated = [...prevTranscriptions];
-        updated[existingIndex] = transcription;
-        return updated;
-      } else {
-        // Add new transcription
-        return [...prevTranscriptions, transcription];
-      }
-    });
+  const addTranscription = (transcription: Omit<Transcription, "id" | "user_id" | "created_at" | "updated_at">) => {
+    // This will be replaced with a real API call in a future update
+    toast.info("Em breve: Adicionar transcrição via API");
   };
 
-  const deleteTranscription = (id: string) => {
-    setTranscriptions(prevTranscriptions => 
-      prevTranscriptions.filter(transcription => transcription.id !== id)
-    );
+  const handleDeleteTranscription = (id: string) => {
+    deleteTranscriptionMutation.mutate(id);
   };
 
   const generateContent = async (data: { 
@@ -135,6 +129,7 @@ export function useTranscriptions() {
       
       /* 
       // Real implementation would look something like this:
+      // This would be implemented in a Supabase Edge Function in a real scenario
       const response = await fetch("https://api.deepseek.com/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -182,7 +177,7 @@ export function useTranscriptions() {
     generatedContent,
     isGenerating,
     addTranscription,
-    deleteTranscription,
+    deleteTranscription: handleDeleteTranscription,
     generateContent
   };
 }

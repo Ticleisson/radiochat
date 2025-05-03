@@ -1,186 +1,175 @@
 
-import { useState, useEffect } from "react";
-import { toast } from "sonner";
-import { jitsiManager, JitsiParticipant } from "@/utils/jitsiManager";
-import { useTranscriptions } from "./useTranscriptions";
+import { useState, useEffect, useRef } from "react";
+import { getRandomTranscription, formatCallDuration } from "@/utils/callTranscription";
+import { Call } from "@/services/callsService";
+import { User } from "@supabase/supabase-js";
+import { useAuth } from "@/contexts/AuthContext";
 
-export interface CallData {
+export interface Participant {
   id: string;
   name: string;
-  startTime: Date;
-  type: "audio" | "video";
-  participants: JitsiParticipant[];
+  status: "connected" | "connecting" | "disconnected";
+  audio: boolean;
+  video: boolean;
 }
 
-export function useCallManagement(callId?: string) {
-  const { addTranscription } = useTranscriptions();
-  
-  // Estados da chamada
-  const [callData, setCallData] = useState<CallData>({
-    id: callId || "active1",
-    name: "Live Interview",
-    startTime: new Date(),
-    type: "audio" as "audio" | "video",
-    participants: []
-  });
-  
+export const useCallManagement = (callId: string | undefined) => {
+  const [callParticipants, setCallParticipants] = useState<Participant[]>([]);
+  const [startTime, setStartTime] = useState<Date | null>(null);
   const [duration, setDuration] = useState("00:00");
-  const [isRecording, setIsRecording] = useState(true);
+  const [isRecording, setIsRecording] = useState(false);
   const [transcriptionText, setTranscriptionText] = useState("");
   const [autoSaveTranscription, setAutoSaveTranscription] = useState(true);
   const [isConnected, setIsConnected] = useState(false);
   
-  // Configurar os manipuladores de eventos do Jitsi
+  const { user } = useAuth();
+  const recordingInterval = useRef<NodeJS.Timeout | null>(null);
+  const durationInterval = useRef<NodeJS.Timeout | null>(null);
+  const transcriptionInterval = useRef<NodeJS.Timeout | null>(null);
+  
+  // Clean up all intervals on unmount
   useEffect(() => {
-    // Configura os handlers de eventos do Jitsi
-    jitsiManager.setEventHandlers({
-      onParticipantJoined: (participant) => {
-        setCallData(prev => ({
-          ...prev,
-          participants: [...prev.participants.filter(p => p.id !== participant.id), participant]
-        }));
-      },
-      onParticipantLeft: (participantId) => {
-        setCallData(prev => ({
-          ...prev,
-          participants: prev.participants.filter(p => p.id !== participantId)
-        }));
-      },
-      onAudioMuteStatusChanged: (participantId, muted) => {
-        setCallData(prev => ({
-          ...prev,
-          participants: prev.participants.map(p => 
-            p.id === participantId ? { ...p, audio: !muted } : p
-          )
-        }));
-      },
-      onVideoMuteStatusChanged: (participantId, muted) => {
-        setCallData(prev => ({
-          ...prev,
-          participants: prev.participants.map(p => 
-            p.id === participantId ? { ...p, video: !muted } : p
-          )
-        }));
-      },
-      onConnectionStatusChanged: (status) => {
-        setIsConnected(status === "connected");
-        
-        if (status === "connected") {
-          toast.success("Conectado à sala de chamada");
-          // Atualiza a lista de participantes após conexão bem-sucedida
-          setCallData(prev => ({
-            ...prev,
-            participants: jitsiManager.getAllParticipants()
-          }));
-        } else if (status === "failed") {
-          toast.error("Falha na conexão");
-        }
-      },
-      onTranscriptionReceived: (text, participantId) => {
-        // Adiciona o texto transcrito ao estado
-        setTranscriptionText(prev => {
-          const participant = callData.participants.find(p => p.id === participantId);
-          const speaker = participant ? participant.name : "Alguém";
-          const newText = `${speaker}: ${text}`;
-          return prev ? `${prev}\n${newText}` : newText;
-        });
-      }
-    });
-
-    // Limpa quando o componente é desmontado
     return () => {
-      jitsiManager.leaveRoom();
+      if (recordingInterval.current) clearInterval(recordingInterval.current);
+      if (durationInterval.current) clearInterval(durationInterval.current);
+      if (transcriptionInterval.current) clearInterval(transcriptionInterval.current);
     };
   }, []);
-
-  // Iniciar a chamada
-  useEffect(() => {
-    const roomName = callId || `radiozap_${Date.now().toString()}`;
-    jitsiManager.joinRoom(roomName, "You (Host)");
+  
+  // Start the call with provided call data
+  const startCall = (callData: Call) => {
+    if (!user) return;
     
-    // Inicia o cronômetro da chamada
-    const startTime = new Date();
-    setCallData(prev => ({ ...prev, startTime }));
+    // Reset call state
+    setTranscriptionText("");
+    setIsRecording(false);
+    if (recordingInterval.current) clearInterval(recordingInterval.current);
+    if (transcriptionInterval.current) clearInterval(transcriptionInterval.current);
     
-    const timer = setInterval(() => {
-      const diff = Date.now() - startTime.getTime();
-      const minutes = Math.floor(diff / 60000).toString().padStart(2, '0');
-      const seconds = Math.floor((diff % 60000) / 1000).toString().padStart(2, '0');
-      setDuration(`${minutes}:${seconds}`);
-    }, 1000);
-    
-    return () => clearInterval(timer);
-  }, [callId]);
-
-  // Hook para simular transcrição em tempo real
-  useEffect(() => {
-    if (!isRecording) return;
-    
-    const transcriptionInterval = setInterval(() => {
-      if (isRecording && callData.participants.length > 0) {
-        const transcriptionParts = [
-          "Olá, hoje estamos em uma entrevista ao vivo.",
-          "Vamos discutir os principais tópicos da semana.",
-          "Obrigado por participar desta chamada.",
-          "Como vocês estão se sentindo hoje?",
-          "Nosso próximo tópico será sobre as novidades do mercado.",
-          "Agradecemos a todos pela participação.",
-        ];
-        
-        const randomPart = transcriptionParts[Math.floor(Math.random() * transcriptionParts.length)];
-        const randomParticipant = callData.participants[
-          Math.floor(Math.random() * callData.participants.length)
-        ];
-        const speaker = randomParticipant ? randomParticipant.name : "Alguém";
-        
-        setTranscriptionText(prev => {
-          const newText = `${speaker}: ${randomPart}`;
-          return prev ? `${prev}\n${newText}` : newText;
-        });
+    // Set the initial participants (including the current user as the host)
+    const participants: Participant[] = [
+      {
+        id: user.id,
+        name: user.user_metadata?.name || "Apresentador",
+        status: "connected",
+        audio: true,
+        video: false
+      },
+      // Add simulated participants for now
+      {
+        id: "guest1",
+        name: "Convidado 1",
+        status: "connecting",
+        audio: false,
+        video: false
       }
-    }, 5000);
+    ];
     
-    return () => clearInterval(transcriptionInterval);
-  }, [isRecording, callData.participants]);
-
-  // Ações de controle da chamada
+    setCallParticipants(participants);
+    setIsConnected(true);
+    
+    // Start the call timer
+    setStartTime(new Date());
+    startCallTimer();
+    
+    // Simulate guest connecting after a short delay
+    setTimeout(() => {
+      setCallParticipants(prevParticipants => 
+        prevParticipants.map(p => 
+          p.id === "guest1" ? { ...p, status: "connected", audio: true } : p
+        )
+      );
+    }, 3000);
+  };
+  
+  // Start the call timer
+  const startCallTimer = () => {
+    setStartTime(new Date());
+    
+    if (durationInterval.current) {
+      clearInterval(durationInterval.current);
+    }
+    
+    durationInterval.current = setInterval(() => {
+      if (startTime) {
+        setDuration(formatCallDuration(startTime));
+      }
+    }, 1000);
+  };
+  
+  // Toggle participant's audio
   const toggleAudio = (participantId: string) => {
-    if (participantId === "host") {
-      const newState = jitsiManager.toggleAudio();
-      toast(newState ? "Microphone unmuted" : "Microphone muted");
+    setCallParticipants(participants => 
+      participants.map(p => 
+        p.id === participantId ? { ...p, audio: !p.audio } : p
+      )
+    );
+  };
+  
+  // Toggle recording
+  const toggleRecording = () => {
+    setIsRecording(prev => {
+      const newIsRecording = !prev;
+      
+      if (newIsRecording) {
+        startRecording();
+      } else {
+        stopRecording();
+      }
+      
+      return newIsRecording;
+    });
+  };
+  
+  // Start recording
+  const startRecording = () => {
+    // In a real implementation, this would start the recording API
+    // For now, we'll simulate new transcriptions appearing periodically
+    transcriptionInterval.current = setInterval(() => {
+      setTranscriptionText(prev => {
+        const newTranscription = getRandomTranscription();
+        return prev ? `${prev}\n\n${newTranscription}` : newTranscription;
+      });
+    }, 5000);
+  };
+  
+  // Stop recording
+  const stopRecording = () => {
+    if (transcriptionInterval.current) {
+      clearInterval(transcriptionInterval.current);
+      transcriptionInterval.current = null;
     }
   };
   
-  const toggleRecording = () => {
-    setIsRecording(!isRecording);
-    toast.success(isRecording ? "Gravação interrompida" : "Gravação iniciada");
-  };
+  // Save transcription (handled by parent component)
   
-  const saveTranscription = () => {
-    if (!transcriptionText) {
-      toast.error("Não há transcrição para salvar.");
-      return;
+  // End call
+  const endCallSession = () => {
+    // Stop all intervals
+    if (recordingInterval.current) {
+      clearInterval(recordingInterval.current);
+      recordingInterval.current = null;
     }
     
-    try {
-      const newTranscription = {
-        id: Date.now().toString(),
-        title: `${callData.name} - ${new Date().toLocaleDateString()}`,
-        content: transcriptionText,
-        date: new Date(),
-        callId: callData.id
-      };
-      
-      addTranscription(newTranscription);
-      toast.success("Transcrição salva com sucesso!");
-    } catch (error) {
-      console.error("Error saving transcription:", error);
-      toast.error("Erro ao salvar transcrição");
+    if (durationInterval.current) {
+      clearInterval(durationInterval.current);
+      durationInterval.current = null;
     }
+    
+    if (transcriptionInterval.current) {
+      clearInterval(transcriptionInterval.current);
+      transcriptionInterval.current = null;
+    }
+    
+    // Reset connection state
+    setIsConnected(false);
+    setIsRecording(false);
+    
+    // In a real implementation, this would disconnect from Jitsi
   };
-
+  
   return {
-    callData,
+    callParticipants,
     duration,
     isRecording,
     transcriptionText,
@@ -188,7 +177,7 @@ export function useCallManagement(callId?: string) {
     isConnected,
     toggleAudio,
     toggleRecording,
-    saveTranscription,
-    setAutoSaveTranscription
+    startCall,
+    endCallSession
   };
-}
+};
