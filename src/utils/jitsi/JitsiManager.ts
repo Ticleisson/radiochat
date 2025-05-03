@@ -1,7 +1,6 @@
 
 import { toast } from "sonner";
 import { JitsiParticipant, JitsiEventHandlers } from "./types";
-import { loadJitsiMeetScript, initJitsiMeet } from "./helpers";
 import JitsiConnection from "./JitsiConnection";
 import JitsiParticipants from "./JitsiParticipants";
 import JitsiTracks from "./JitsiTracks";
@@ -11,6 +10,7 @@ class JitsiManager {
   private jitsiParticipants: JitsiParticipants;
   private jitsiTracks: JitsiTracks;
   private eventHandlers: JitsiEventHandlers = {};
+  private isConnected: boolean = false;
 
   constructor() {
     this.jitsiConnection = new JitsiConnection();
@@ -20,9 +20,21 @@ class JitsiManager {
 
   public setEventHandlers(handlers: JitsiEventHandlers) {
     this.eventHandlers = { ...this.eventHandlers, ...handlers };
-    this.jitsiConnection.setEventHandlers(this.eventHandlers);
+    this.jitsiConnection.setEventHandlers({
+      ...this.eventHandlers,
+      connectionStatusChanged: (status) => {
+        this.isConnected = status === "connected";
+        if (this.eventHandlers.connectionStatusChanged) {
+          this.eventHandlers.connectionStatusChanged(status);
+        }
+      }
+    });
     this.jitsiParticipants.setEventHandlers(this.eventHandlers);
     this.jitsiTracks.setEventHandlers(this.eventHandlers);
+  }
+
+  public isConnectedToRoom(): boolean {
+    return this.isConnected && this.jitsiConnection.isRoomJoined();
   }
 
   public async joinRoom(roomName: string, displayName: string) {
@@ -40,7 +52,7 @@ class JitsiManager {
         room.setDisplayName(displayName);
         room.join();
         
-        // Cria as tracks de áudio local
+        // Create local audio tracks only when actually joining the room
         await this.jitsiTracks.createLocalTracks();
       }
     }
@@ -61,6 +73,7 @@ class JitsiManager {
   }
 
   public leaveRoom() {
+    this.isConnected = false;
     this.jitsiTracks.disposeLocalTracks();
     this.jitsiConnection.leaveRoom();
   }

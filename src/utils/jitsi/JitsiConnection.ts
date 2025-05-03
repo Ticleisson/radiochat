@@ -12,25 +12,26 @@ class JitsiConnection {
   private domain: string = "jitsi.radiochat.cleissoncardoso.com";
   private isInitialized: boolean = false;
   private isJoined: boolean = false;
+  private connecting: boolean = false;
 
   constructor() {
-    this.loadJitsiMeetScript();
+    // Don't automatically load Jitsi script on construction
+    // Only load when explicitly requested
   }
 
-  private loadJitsiMeetScript() {
-    loadJitsiMeetScript(() => {
-      this.initJitsiMeet();
-    });
+  private loadJitsiMeetScript(callback: () => void) {
+    loadJitsiMeetScript(callback);
   }
 
-  private initJitsiMeet() {
+  private initJitsiMeet(callback: () => void) {
     if (!window.JitsiMeetJS) {
-      setTimeout(() => this.initJitsiMeet(), 100);
+      setTimeout(() => this.initJitsiMeet(callback), 100);
       return;
     }
 
     if (initJitsiMeet()) {
       this.isInitialized = true;
+      callback();
     }
   }
 
@@ -40,6 +41,10 @@ class JitsiConnection {
 
   public isRoomJoined(): boolean {
     return this.isJoined;
+  }
+
+  public isConnecting(): boolean {
+    return this.connecting;
   }
 
   public getConnection() {
@@ -63,11 +68,21 @@ class JitsiConnection {
   }
 
   public async joinRoom(roomName: string, displayName: string) {
-    if (!this.isInitialized) {
-      setTimeout(() => this.joinRoom(roomName, displayName), 100);
-      return;
-    }
-
+    // Start the explicit loading and initialization process
+    this.connecting = true;
+    
+    return new Promise<boolean>((resolve) => {
+      // First load the Jitsi script
+      this.loadJitsiMeetScript(() => {
+        // Then initialize Jitsi
+        this.initJitsiMeet(() => {
+          this.connectToRoom(roomName, displayName, resolve);
+        });
+      });
+    });
+  }
+  
+  private connectToRoom(roomName: string, displayName: string, resolve: (value: boolean) => void) {
     try {
       this.roomName = roomName;
       this.userName = displayName;
@@ -92,7 +107,7 @@ class JitsiConnection {
       
       this.connection.addEventListener(
         JitsiMeetJS.events.connection.CONNECTION_FAILED,
-        this.onConnectionFailed.bind(this)
+        this.onConnectionFailed.bind(this, resolve)
       );
       
       this.connection.addEventListener(
@@ -102,11 +117,14 @@ class JitsiConnection {
 
       this.connection.connect();
       
-      return true;
     } catch (error) {
       console.error('Error joining room:', error);
       toast.error("Erro ao entrar na sala de chamada");
-      return false;
+      this.connecting = false;
+      if (this.eventHandlers.connectionStatusChanged) {
+        this.eventHandlers.connectionStatusChanged("failed");
+      }
+      resolve(false);
     }
   }
 
@@ -118,27 +136,33 @@ class JitsiConnection {
       
       const JitsiMeetJS = window.JitsiMeetJS;
       this.room = this.connection.initJitsiConference(this.roomName, {});
+      this.connecting = false;
       
       return this.room;
     } catch (error) {
       console.error('Error during connection setup:', error);
       toast.error("Erro ao configurar a chamada");
+      this.connecting = false;
       return null;
     }
   }
 
-  public onConnectionFailed() {
+  public onConnectionFailed(resolve: (value: boolean) => void) {
     console.error('Connection failed!');
     toast.error("Falha na conexão com o servidor de chamadas");
     
+    this.connecting = false;
     if (this.eventHandlers.connectionStatusChanged) {
       this.eventHandlers.connectionStatusChanged("failed");
     }
+    resolve(false);
   }
 
   public onConnectionDisconnected() {
     console.log('Connection disconnected!');
     
+    this.connecting = false;
+    this.isJoined = false;
     if (this.eventHandlers.connectionStatusChanged) {
       this.eventHandlers.connectionStatusChanged("disconnected");
     }
@@ -150,7 +174,7 @@ class JitsiConnection {
   }
 
   public leaveRoom() {
-    if (!this.isJoined) {
+    if (!this.isJoined && !this.connecting) {
       return;
     }
     
@@ -162,6 +186,7 @@ class JitsiConnection {
       this.connection.disconnect();
     }
     this.isJoined = false;
+    this.connecting = false;
   }
 }
 

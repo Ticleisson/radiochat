@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { formatCallDuration } from "@/utils/callTranscription";
 import { Call } from "@/services/callsService";
@@ -76,8 +77,15 @@ export const useCallManagement = (callId: string | undefined) => {
             console.error("Falha na conexão com Jitsi:", error);
             setIsConnected(false);
             toast.error("Falha na conexão. Tente novamente.");
+          },
+          connectionStatusChanged: (status) => {
+            console.log("Status da conexão alterado:", status);
+            setIsConnected(status === "connected");
           }
         });
+      } else {
+        // Ensure we reset the connection state if reusing the manager
+        setIsConnected(false);
       }
       
       // Nome da sala baseado no ID da chamada ou gera um aleatório para novas chamadas
@@ -103,7 +111,6 @@ export const useCallManagement = (callId: string | undefined) => {
         };
         
         setCallParticipants([localParticipant]);
-        setIsConnected(true);
         
         // Inicia o temporizador da chamada
         startCallTimer();
