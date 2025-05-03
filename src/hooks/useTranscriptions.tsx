@@ -1,8 +1,8 @@
-
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { Transcription, fetchTranscriptions, deleteTranscription, updateTranscription } from "@/services/transcriptionsService";
+import { Transcription as SupabaseTranscription, fetchTranscriptions, deleteTranscription, updateTranscription, saveTranscription } from "@/services/transcriptionsService";
 import { GeneratedContent } from "@/types/generatedContent";
+import { Transcription } from "@/types/transcription";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 // Helper to fetch the DeepSeek API key from localStorage
@@ -20,6 +20,21 @@ const getDeepSeekApiKey = () => {
   }
 };
 
+// Convert Supabase transcription format to app format
+const convertToAppTranscription = (supabaseTranscription: SupabaseTranscription): Transcription => {
+  return {
+    id: supabaseTranscription.id,
+    title: supabaseTranscription.title,
+    content: supabaseTranscription.content,
+    date: supabaseTranscription.created_at ? new Date(supabaseTranscription.created_at) : new Date(),
+    callId: supabaseTranscription.call_id || null,
+    user_id: supabaseTranscription.user_id,
+    created_at: supabaseTranscription.created_at,
+    updated_at: supabaseTranscription.updated_at,
+    call_id: supabaseTranscription.call_id
+  };
+};
+
 export function useTranscriptions() {
   const [generatedContent, setGeneratedContent] = useState<GeneratedContent | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -27,10 +42,13 @@ export function useTranscriptions() {
   const queryClient = useQueryClient();
   
   // Fetch transcriptions using React Query
-  const { data: transcriptions = [] } = useQuery({
+  const { data: supabaseTranscriptions = [] } = useQuery({
     queryKey: ['transcriptions'],
     queryFn: fetchTranscriptions,
   });
+  
+  // Convert Supabase transcriptions to app format
+  const transcriptions: Transcription[] = supabaseTranscriptions.map(convertToAppTranscription);
   
   // Delete transcription mutation
   const deleteTranscriptionMutation = useMutation({
@@ -41,17 +59,30 @@ export function useTranscriptions() {
   });
   
   // Add/Update transcription mutation
+  const addTranscriptionMutation = useMutation({
+    mutationFn: (transcription: Omit<Transcription, "id" | "date" | "created_at" | "updated_at" | "user_id">) => {
+      const supabaseFormat = {
+        title: transcription.title,
+        content: transcription.content,
+        call_id: transcription.callId
+      };
+      return saveTranscription(supabaseFormat);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['transcriptions'] });
+    }
+  });
+  
   const updateTranscriptionMutation = useMutation({
-    mutationFn: ({ id, updates }: { id: string; updates: Partial<Transcription> }) =>
+    mutationFn: ({ id, updates }: { id: string; updates: Partial<SupabaseTranscription> }) =>
       updateTranscription(id, updates),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transcriptions'] });
     }
   });
 
-  const addTranscription = (transcription: Omit<Transcription, "id" | "user_id" | "created_at" | "updated_at">) => {
-    // This will be replaced with a real API call in a future update
-    toast.info("Em breve: Adicionar transcrição via API");
+  const addTranscription = (transcription: Omit<Transcription, "id" | "date" | "created_at" | "updated_at" | "user_id">) => {
+    addTranscriptionMutation.mutate(transcription);
   };
 
   const handleDeleteTranscription = (id: string) => {

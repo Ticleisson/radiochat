@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import MainLayout from "@/components/layout/MainLayout";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -47,10 +47,8 @@ const Transcriptions = () => {
                 if (!title) return;
                 
                 addTranscription({
-                  id: Date.now().toString(),
                   title,
                   content: "",
-                  date: new Date(),
                   callId: null
                 });
                 
@@ -76,10 +74,8 @@ const Transcriptions = () => {
                       if (!title) return;
                       
                       addTranscription({
-                        id: Date.now().toString(),
                         title,
                         content: "",
-                        date: new Date(),
                         callId: null
                       });
                       
@@ -98,7 +94,9 @@ const Transcriptions = () => {
                     <CardHeader>
                       <CardTitle>{transcription.title}</CardTitle>
                       <CardDescription>
-                        {new Date(transcription.date).toLocaleDateString()}
+                        {transcription.date instanceof Date ? 
+                          transcription.date.toLocaleDateString() : 
+                          new Date(transcription.date as unknown as string).toLocaleDateString()}
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -114,8 +112,9 @@ const Transcriptions = () => {
                           if (content === null) return;
                           
                           addTranscription({
-                            ...transcription,
-                            content
+                            title: transcription.title,
+                            content,
+                            callId: transcription.callId
                           });
                           
                           toast.success("Transcrição atualizada com sucesso!");
