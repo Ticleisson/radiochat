@@ -9,8 +9,6 @@ services:
     ports:
       - "3000:3000"
     restart: unless-stopped
-    # Se você precisar de variáveis de ambiente
-    # environment:
-    #   - NODE_ENV=production
-    #   - VITE_SUPABASE_URL=${SUPABASE_URL}
-    #   - VITE_SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+    environment:
+      - NODE_ENV=production
+      - JITSI_DOMAIN=jitsi.radiochat.cleissoncardoso.com

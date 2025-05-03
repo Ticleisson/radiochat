@@ -12,10 +12,14 @@ export const loadJitsiMeetScript = (callback: () => void) => {
   }
 
   const script = document.createElement('script');
-  script.src = 'https://meet.jit.si/libs/lib-jitsi-meet.min.js';
+  script.src = 'https://jitsi.radiochat.cleissoncardoso.com/libs/lib-jitsi-meet.min.js';
   script.async = true;
   script.onload = () => {
     callback();
+  };
+  script.onerror = () => {
+    toast.error("Erro ao carregar o script do Jitsi. Verifique se o servidor está acessível.");
+    console.error("Failed to load Jitsi Meet script");
   };
   document.body.appendChild(script);
 };

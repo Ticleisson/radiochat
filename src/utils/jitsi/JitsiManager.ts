@@ -1,4 +1,3 @@
-
 import { toast } from "sonner";
 import { JitsiParticipant, JitsiEventHandlers, JitsiConfig } from "./types";
 import { loadJitsiMeetScript, initJitsiMeet, showErrorToast } from "./helpers";
@@ -12,7 +11,7 @@ class JitsiManager {
   private eventHandlers: JitsiEventHandlers = {};
   private userName: string = "You (Host)";
   private roomName: string = "";
-  private domain: string = "meet.jit.si";
+  private domain: string = "jitsi.radiochat.cleissoncardoso.com";
   private isInitialized: boolean = false;
   private isJoined: boolean = false;
 
